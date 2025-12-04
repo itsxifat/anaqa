@@ -5,9 +5,10 @@ import connectDB from '@/lib/db';
 import Hero from '@/models/Hero';
 import Category from '@/models/Category';
 import SiteContent from '@/models/SiteContent';
+import User from '@/models/User';
 import { revalidatePath } from 'next/cache';
 
-// --- AUTHENTICATION ---
+// --- 1. AUTHENTICATION ---
 export async function loginAction(formData) {
   const password = formData.get('password');
   // Check against Environment Variable
@@ -23,56 +24,44 @@ export async function loginAction(formData) {
   return { success: false, error: 'Invalid Password' };
 }
 
-// --- HERO CAROUSEL ACTIONS ---
+// --- 2. HERO CAROUSEL ACTIONS ---
 export async function addSlide(formData) {
   await connectDB();
 
-  // 1. Validate Desktop Image
   const imageFile = formData.get('image'); // Desktop
-  if (!imageFile || imageFile.size === 0) {
-    return { error: 'Desktop Image is required' };
-  }
+  const mobileImageFile = formData.get('mobileImage'); // Mobile (Optional)
 
-  // 2. Process Desktop Image to Buffer
+  if (!imageFile || imageFile.size === 0) return { error: 'Desktop Image is required' };
+
+  // Process Desktop Image
   const bytes = await imageFile.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  // 3. Process Mobile Image (Optional)
-  const mobileImageFile = formData.get('mobileImage');
+  // Process Mobile Image
   let mobileBuffer = null;
   let mobileType = null;
-  
   if (mobileImageFile && mobileImageFile.size > 0) {
-    const mobileBytes = await mobileImageFile.arrayBuffer();
-    mobileBuffer = Buffer.from(mobileBytes);
+    const mBytes = await mobileImageFile.arrayBuffer();
+    mobileBuffer = Buffer.from(mBytes);
     mobileType = mobileImageFile.type;
   }
 
   try {
-    // 4. Parse JSON Data & Fields
     const buttonLayer = JSON.parse(formData.get('buttonLayer') || '{}');
     const showButton = formData.get('showButton') === 'true';
     const overlayOpacity = formData.get('overlayOpacity');
 
-    // 5. Create Database Entry
     await Hero.create({
-      buttonLayer: buttonLayer,
-      showButton: showButton,
-      overlayOpacity: overlayOpacity,
-      image: {
-        data: buffer,
-        contentType: imageFile.type,
-      },
-      // Conditionally add mobile image if it exists
+      buttonLayer,
+      showButton,
+      overlayOpacity,
+      image: { data: buffer, contentType: imageFile.type },
+      // Only add mobile image if it exists
       ...(mobileBuffer && {
-        mobileImage: {
-          data: mobileBuffer,
-          contentType: mobileType
-        }
+        mobileImage: { data: mobileBuffer, contentType: mobileType }
       })
     });
 
-    // 6. Refresh Pages
     revalidatePath('/');
     revalidatePath('/admin/carousel');
     return { success: true };
@@ -87,15 +76,14 @@ export async function deleteSlide(id) {
   await Hero.findByIdAndDelete(id);
   revalidatePath('/');
   revalidatePath('/admin/carousel');
+  return { success: true };
 }
 
-// --- CATEGORY ACTIONS ---
+// --- 3. CATEGORY ACTIONS ---
 export async function createCategory(formData) {
   await connectDB();
   const name = formData.get('name');
   const parentId = formData.get('parentId') || null;
-  
-  // Create a simple slug (e.g., "Summer Collection" -> "summer-collection")
   const slug = name.toLowerCase().replace(/ /g, '-');
 
   try {
@@ -104,7 +92,6 @@ export async function createCategory(formData) {
     revalidatePath('/admin/navbar');
     return { success: true };
   } catch (error) {
-    console.error('Error creating category:', error);
     return { error: 'Failed to create category' };
   }
 }
@@ -112,15 +99,14 @@ export async function createCategory(formData) {
 export async function deleteCategory(id) {
   await connectDB();
   await Category.findByIdAndDelete(id);
-  // Note: In a real app, you might want to handle children of deleted categories here
   revalidatePath('/admin/categories');
+  return { success: true };
 }
 
 export async function getCategories() {
   await connectDB();
   const categories = await Category.find().lean();
   
-  // Helper to build a nested tree structure
   const buildTree = (cats, parentId = null) => {
     return cats
       .filter(c => String(c.parent) === String(parentId))
@@ -130,24 +116,85 @@ export async function getCategories() {
         children: buildTree(cats, c._id)
       }));
   };
-  
   return buildTree(categories, null);
 }
 
-// --- NAVBAR CONFIG ACTIONS ---
+// --- 4. NAVBAR ACTIONS ---
 export async function saveNavbarConfig(links) {
   await connectDB();
   try {
-    // Updates or Creates the main layout configuration
     await SiteContent.findOneAndUpdate(
       { identifier: 'main_layout' },
       { navbarLinks: links },
       { upsert: true, new: true }
     );
-    revalidatePath('/'); // Update the live site navbar immediately
+    revalidatePath('/'); 
     return { success: true };
   } catch (error) {
-    console.error('Error saving navbar:', error);
-    return { error: 'Failed to save navbar configuration' };
+    return { error: 'Failed to save navbar' };
+  }
+}
+
+// --- 5. USER MANAGEMENT ACTIONS ---
+
+export async function getUsers(query = '') {
+  await connectDB();
+  try {
+    // Search by Name or Email
+    const searchFilter = query
+      ? { 
+          $or: [
+            { name: { $regex: query, $options: 'i' } },
+            { email: { $regex: query, $options: 'i' } }
+          ] 
+        }
+      : {};
+
+    const users = await User.find(searchFilter).sort({ createdAt: -1 }).lean();
+    
+    // Serialize IDs and Safely handle Dates
+    return users.map(user => ({
+      ...user,
+      _id: user._id.toString(),
+      // FIX: Check if createdAt exists before calling toISOString()
+      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString()
+    }));
+  } catch (error) {
+    console.error('Fetch Users Error:', error);
+    return [];
+  }
+}
+
+export async function toggleUserBan(id, currentStatus) {
+  await connectDB();
+  try {
+    await User.findByIdAndUpdate(id, { isBanned: !currentStatus });
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    return { error: 'Failed to update ban status' };
+  }
+}
+
+export async function toggleUserRole(id, currentRole) {
+  await connectDB();
+  try {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    await User.findByIdAndUpdate(id, { role: newRole });
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    return { error: 'Failed to update role' };
+  }
+}
+
+export async function deleteUser(id) {
+  await connectDB();
+  try {
+    await User.findByIdAndDelete(id);
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    return { error: 'Failed to delete user' };
   }
 }

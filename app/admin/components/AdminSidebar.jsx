@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Images, Settings, Monitor, LogOut, Menu, X, ChevronRight, Layers } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -10,8 +11,9 @@ const SidebarContent = ({ activePath, onClickItem }) => {
  const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/carousel', label: 'Carousel Studio', icon: Images },
-  { href: '/admin/categories', label: 'Categories', icon: Layers }, // NEW
-  { href: '/admin/navbar', label: 'Navbar Settings', icon: Monitor }, // Updated
+  { href: '/admin/categories', label: 'Categories', icon: Layers },
+  { href: '/admin/users', label: 'User Management', icon: Users }, // NEW
+  { href: '/admin/navbar', label: 'Navigation', icon: Monitor },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
