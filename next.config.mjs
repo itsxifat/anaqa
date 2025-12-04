@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb', // Increased from default 1mb
+    },
+  },
+  // Ensure mongoose doesn't cause bundling issues
+  serverExternalPackages: ["mongoose"],
 };
 
 export default nextConfig;
