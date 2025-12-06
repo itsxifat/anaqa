@@ -5,15 +5,18 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String },
   phone: { type: String },
-  image: { type: String },
+  image: { type: String }, // Stores Google URL
   provider: { type: String, enum: ['credentials', 'google'], default: 'credentials' },
   
-  // Verification
+  // Custom Uploaded Image (Buffer)
+  customImage: {
+    data: Buffer,
+    contentType: String
+  },
+
   isVerified: { type: Boolean, default: false },
   otp: { type: String },
   otpExpiry: { type: Date },
-
-  // NEW: Admin Controls
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isBanned: { type: Boolean, default: false },
 }, { timestamps: true });

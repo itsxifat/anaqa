@@ -8,7 +8,7 @@ import SiteContent from '@/models/SiteContent';
 import User from '@/models/User';
 import { revalidatePath } from 'next/cache';
 
-// --- 1. AUTHENTICATION ---
+// --- 1. ADMIN AUTHENTICATION ---
 export async function loginAction(formData) {
   const password = formData.get('password');
   // Check against Environment Variable
@@ -29,17 +29,20 @@ export async function addSlide(formData) {
   await connectDB();
 
   const imageFile = formData.get('image'); // Desktop
-  const mobileImageFile = formData.get('mobileImage'); // Mobile (Optional)
-
-  if (!imageFile || imageFile.size === 0) return { error: 'Desktop Image is required' };
+  
+  if (!imageFile || imageFile.size === 0) {
+    return { error: 'Desktop Image is required' };
+  }
 
   // Process Desktop Image
   const bytes = await imageFile.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  // Process Mobile Image
+  // Process Mobile Image (Optional)
+  const mobileImageFile = formData.get('mobileImage');
   let mobileBuffer = null;
   let mobileType = null;
+  
   if (mobileImageFile && mobileImageFile.size > 0) {
     const mBytes = await mobileImageFile.arrayBuffer();
     mobileBuffer = Buffer.from(mBytes);
@@ -47,16 +50,11 @@ export async function addSlide(formData) {
   }
 
   try {
-    const buttonLayer = JSON.parse(formData.get('buttonLayer') || '{}');
-    const showButton = formData.get('showButton') === 'true';
-    const overlayOpacity = formData.get('overlayOpacity');
+    const link = formData.get('link') || '/';
 
     await Hero.create({
-      buttonLayer,
-      showButton,
-      overlayOpacity,
+      link,
       image: { data: buffer, contentType: imageFile.type },
-      // Only add mobile image if it exists
       ...(mobileBuffer && {
         mobileImage: { data: mobileBuffer, contentType: mobileType }
       })
@@ -119,7 +117,7 @@ export async function getCategories() {
   return buildTree(categories, null);
 }
 
-// --- 4. NAVBAR ACTIONS ---
+// --- 4. NAVBAR CONFIG ACTIONS ---
 export async function saveNavbarConfig(links) {
   await connectDB();
   try {
@@ -135,12 +133,10 @@ export async function saveNavbarConfig(links) {
   }
 }
 
-// --- 5. USER MANAGEMENT ACTIONS ---
-
+// --- 5. USER MANAGEMENT ACTIONS (ADMIN) ---
 export async function getUsers(query = '') {
   await connectDB();
   try {
-    // Search by Name or Email
     const searchFilter = query
       ? { 
           $or: [
@@ -152,11 +148,9 @@ export async function getUsers(query = '') {
 
     const users = await User.find(searchFilter).sort({ createdAt: -1 }).lean();
     
-    // Serialize IDs and Safely handle Dates
     return users.map(user => ({
       ...user,
       _id: user._id.toString(),
-      // FIX: Check if createdAt exists before calling toISOString()
       createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString()
     }));
   } catch (error) {
@@ -196,5 +190,49 @@ export async function deleteUser(id) {
     return { success: true };
   } catch (error) {
     return { error: 'Failed to delete user' };
+  }
+}
+
+// --- 6. USER PROFILE UPDATE (CLIENT) ---
+export async function updateUserProfile(formData) {
+  await connectDB();
+  
+  const email = formData.get('email');
+  const name = formData.get('name');
+  const phone = formData.get('phone');
+  const imageFile = formData.get('image');
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return { error: "User not found" };
+
+    // Update Text Fields
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+
+    // Update Image if provided
+    if (imageFile && imageFile.size > 0) {
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      
+      // Save binary data to DB
+      user.customImage = {
+        data: buffer,
+        contentType: imageFile.type
+      };
+      // IMPORTANT: Remove the google URL string so the app logic switches to customImage
+      user.image = null; 
+    }
+
+    await user.save();
+    
+    // Refresh all relevant paths so the UI updates immediately
+    revalidatePath('/account'); 
+    revalidatePath('/', 'layout'); 
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Profile Update Error:", error);
+    return { error: "Failed to update profile" };
   }
 }

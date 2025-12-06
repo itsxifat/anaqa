@@ -2,46 +2,20 @@
 
 import { addSlide, deleteSlide } from '@/app/actions';
 import { useRef, useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Trash2, UploadCloud, Loader2, 
-  Smartphone, Monitor, Image as ImageIcon, MousePointer2, Link as LinkIcon,
+  Trash2, UploadCloud, Loader2, Link as LinkIcon, 
+  Smartphone, Monitor, Image as ImageIcon, ExternalLink,
   CheckCircle2, XCircle, AlertCircle
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// ... (KEEP ALL YOUR EXISTING CONSTANTS: FONTS, BUTTON_SIZES, SCREEN RATIOS) ...
-const DESKTOP_RATIO = 1920 / 920; 
-const MOBILE_RATIO = 390 / 750;
-
-const FONTS = [
-  { label: 'Manrope', val: 'font-manrope' },
-  { label: 'Playfair', val: 'font-playfair' },
-  { label: 'Montserrat', val: 'font-montserrat' },
-  { label: 'Cinzel', val: 'font-cinzel' },
-  { label: 'Bodoni', val: 'font-bodoni' },
-];
-
-const BUTTON_SIZES = [
-  { label: 'Small', val: 'text-xs md:text-sm' },
-  { label: 'Medium', val: 'text-sm md:text-base' },
-  { label: 'Large', val: 'text-base md:text-lg' },
-  { label: 'X-Large', val: 'text-lg md:text-xl' },
-];
-
-// --- TOAST COMPONENT ---
+// --- TOAST NOTIFICATION COMPONENT ---
 const Toast = ({ notification, onClose }) => {
   if (!notification) return null;
 
   const bgColors = {
     success: 'bg-green-50 border-green-200 text-green-800',
     error: 'bg-red-50 border-red-200 text-red-800',
-    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-  };
-
-  const icons = {
-    success: <CheckCircle2 size={18} className="text-green-600" />,
-    error: <XCircle size={18} className="text-red-600" />,
-    warning: <AlertCircle size={18} className="text-yellow-600" />,
   };
 
   return (
@@ -50,16 +24,14 @@ const Toast = ({ notification, onClose }) => {
         initial={{ opacity: 0, y: -20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -20, scale: 0.95 }}
-        className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border ${bgColors[notification.type] || bgColors.success}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border ${bgColors[notification.type]}`}
       >
-        {icons[notification.type]}
+        {notification.type === 'success' ? <CheckCircle2 size={18}/> : <XCircle size={18}/>}
         <div>
-          <h4 className="text-sm font-bold">{notification.title}</h4>
+          <h4 className="text-sm font-bold capitalize">{notification.title}</h4>
           <p className="text-xs opacity-90">{notification.message}</p>
         </div>
-        <button onClick={onClose} className="ml-4 opacity-50 hover:opacity-100">
-          <XCircle size={14} />
-        </button>
+        <button onClick={onClose} className="ml-4 opacity-50 hover:opacity-100"><XCircle size={14}/></button>
       </motion.div>
     </div>
   );
@@ -67,38 +39,15 @@ const Toast = ({ notification, onClose }) => {
 
 export default function CarouselClient({ slides }) {
   const formRef = useRef(null);
-  const containerWrapperRef = useRef(null);
-  const containerRef = useRef(null);
-  
-  // State
   const [isUploading, setIsUploading] = useState(false);
-  const [notification, setNotification] = useState(null); // For Toasts
   
-  const [previewImage, setPreviewImage] = useState(null);
-  const [previewMobileImage, setPreviewMobileImage] = useState(null);
-  const [overlayOpacity, setOverlayOpacity] = useState(10);
-  const [previewMode, setPreviewMode] = useState('desktop');
-  const [showButton, setShowButton] = useState(true);
+  // Preview State
+  const [desktopPreview, setDesktopPreview] = useState(null);
+  const [mobilePreview, setMobilePreview] = useState(null);
+  const [viewMode, setViewMode] = useState('desktop'); 
+  const [notification, setNotification] = useState(null); // Notification State
 
-  // Button State
-  const [btn, setBtn] = useState({
-    text: 'SHOP NOW',
-    link: '/',
-    x: 50, y: 85,
-    color: '#000000',
-    bgColor: '#ffffff',
-    fontSize: 'text-sm md:text-base',
-    fontFamily: 'font-manrope',
-    fontWeight: 'font-bold',
-    isUppercase: true,
-    letterSpacing: 'tracking-widest',
-    borderRadius: 0,
-    paddingX: 40,
-    paddingY: 16,
-    hasShadow: false,
-  });
-
-  // Clear notification after 3 seconds
+  // Clear notification after 3s
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => setNotification(null), 3000);
@@ -106,286 +55,169 @@ export default function CarouselClient({ slides }) {
     }
   }, [notification]);
 
-  // Scale Logic (Existing)
-  useEffect(() => {
-    const handleResize = () => {
-      if (!containerWrapperRef.current || !containerRef.current) return;
-      const wrapper = containerWrapperRef.current;
-      const container = containerRef.current;
-      const availW = wrapper.clientWidth - 48;
-      const availH = wrapper.clientHeight - 48;
-      const targetRatio = previewMode === 'desktop' ? DESKTOP_RATIO : MOBILE_RATIO;
-      let newW = availW;
-      let newH = newW / targetRatio;
-      if (newH > availH) {
-        newH = availH;
-        newW = newH * targetRatio;
-      }
-      container.style.width = `${newW}px`;
-      container.style.height = `${newH}px`;
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [previewMode]);
-
-  // Image Handler with Validation
   const handleImageChange = (e, type) => {
     const file = e.target.files[0];
     if (file) {
-      // Client-Side Size Check (e.g., 9MB limit to be safe)
-      if (file.size > 9 * 1024 * 1024) {
-        setNotification({ 
-          type: 'error', 
-          title: 'File Too Large', 
-          message: 'Image must be under 9MB' 
-        });
-        e.target.value = ""; // Reset input
-        return;
-      }
-      
       const url = URL.createObjectURL(file);
-      if (type === 'mobile') setPreviewMobileImage(url);
-      else setPreviewImage(url);
+      if (type === 'desktop') setDesktopPreview(url);
+      if (type === 'mobile') setMobilePreview(url);
     }
   };
 
-  const handleDragEnd = (_, info) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const relativeX = info.point.x - rect.left;
-    const relativeY = info.point.y - rect.top;
-    const xPercent = Math.max(0, Math.min(100, (relativeX / rect.width) * 100));
-    const yPercent = Math.max(0, Math.min(100, (relativeY / rect.height) * 100));
-    setBtn(prev => ({ ...prev, x: xPercent, y: yPercent }));
-  };
-
-  const updateBtn = (updates) => setBtn(prev => ({ ...prev, ...updates }));
-
-  // --- SUBMIT HANDLER ---
   async function handleAdd(formData) {
     setIsUploading(true);
-    
-    // Prepare Data
-    formData.set('buttonLayer', JSON.stringify(btn));
-    formData.set('showButton', showButton);
-    formData.set('overlayOpacity', overlayOpacity);
-
     try {
       const res = await addSlide(formData);
-      
       if (res.error) {
-        // Show Error Toast
         setNotification({ type: 'error', title: 'Error', message: res.error });
       } else {
-        // Show Success Toast & Reset
-        setNotification({ type: 'success', title: 'Success', message: 'Slide published successfully' });
+        setNotification({ type: 'success', title: 'Success', message: 'Slide added successfully' });
         formRef.current?.reset();
-        setPreviewImage(null);
-        setPreviewMobileImage(null);
-        setBtn(prev => ({...prev, x: 50, y: 85}));
+        setDesktopPreview(null);
+        setMobilePreview(null);
       }
     } catch (err) {
-      // Catch "Body exceeded 1MB" or network errors
-      console.error(err);
-      setNotification({ 
-        type: 'error', 
-        title: 'Upload Failed', 
-        message: 'File too large or connection error. Try a smaller image.' 
-      });
+      setNotification({ type: 'error', title: 'Error', message: 'Something went wrong.' });
     } finally { 
       setIsUploading(false); 
     }
   }
 
-  // Active Image Preview
-  const activePreview = previewMode === 'mobile' 
-    ? (previewMobileImage || previewImage) 
-    : previewImage;
-
   return (
-    <div className="flex flex-col h-screen bg-gray-50 text-gray-900 font-manrope overflow-hidden relative">
+    <div className="min-h-screen bg-[#f4f4f4] text-gray-900 font-manrope pb-20 relative">
       
-      {/* Toast Notification Container */}
+      {/* Notifications */}
       <AnimatePresence>
         {notification && <Toast notification={notification} onClose={() => setNotification(null)} />}
       </AnimatePresence>
 
-      {/* TOOLBAR */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm shrink-0 z-20">
-        <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold font-playfair">Carousel Studio</h2>
-          <div className="flex bg-gray-100 p-1 rounded-lg">
-            <button onClick={() => setPreviewMode('desktop')} className={`p-1.5 rounded ${previewMode === 'desktop' ? 'bg-white shadow' : 'text-gray-400'}`}><Monitor size={18}/></button>
-            <button onClick={() => setPreviewMode('mobile')} className={`p-1.5 rounded ${previewMode === 'mobile' ? 'bg-white shadow' : 'text-gray-400'}`}><Smartphone size={18}/></button>
-          </div>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-8 py-6 flex justify-between items-center sticky top-0 z-30 shadow-sm">
+        <div>
+          <h2 className="text-2xl font-playfair font-bold">Carousel Manager</h2>
+          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Desktop Viewport Preview</p>
         </div>
-        <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-          {slides.length} Slides Active
+        
+        <div className="flex gap-4 items-center">
+          <div className="bg-gray-100 p-1 rounded-lg flex gap-1">
+            <button onClick={() => setViewMode('desktop')} className={`p-2 rounded-md transition ${viewMode === 'desktop' ? 'bg-white shadow text-black' : 'text-gray-400'}`}><Monitor size={18}/></button>
+            <button onClick={() => setViewMode('mobile')} className={`p-2 rounded-md transition ${viewMode === 'mobile' ? 'bg-white shadow text-black' : 'text-gray-400'}`}><Smartphone size={18}/></button>
+          </div>
+          <div className="text-xs font-bold bg-black text-white px-3 py-1 rounded">
+            {slides.length} SLIDES
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="max-w-[1600px] mx-auto p-8 grid grid-cols-1 lg:grid-cols-12 gap-12">
         
-        {/* CENTER: CANVAS */}
-        <div ref={containerWrapperRef} className="flex-1 bg-[#e5e5e5] relative flex items-center justify-center overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+        {/* LEFT: UPLOAD & PREVIEW */}
+        <div className="lg:col-span-8 space-y-8">
           
-          <div 
-            ref={containerRef}
-            className={`
-              bg-gray-900 shadow-2xl relative overflow-hidden transition-all duration-300
-              ${previewMode === 'mobile' ? 'rounded-[2rem] border-[8px] border-gray-800' : 'rounded-md shadow-[0_0_50px_rgba(0,0,0,0.2)]'}
-            `}
-          >
-            {/* Background Image */}
-            {activePreview ? (
-              <img src={activePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 gap-4">
-                <ImageIcon size={64} className="opacity-50"/>
-                <span className="text-xl font-bold tracking-widest uppercase">
-                  {previewMode === 'mobile' ? 'Mobile View' : 'Desktop View'}
-                </span>
-                <span className="text-xs opacity-70">Upload image to see preview</span>
-              </div>
-            )}
+          {/* THE PREVIEW CONTAINER - EXACT RATIO SIMULATION */}
+          <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 mb-1">
+              {viewMode === 'desktop' ? <Monitor size={14} className="text-gray-400" /> : <Smartphone size={14} className="text-gray-400" />}
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                {viewMode === 'desktop' ? 'Desktop (1920 x 1000px)' : 'Mobile (390 x 764px)'}
+              </span>
+            </div>
             
-            {/* Overlay */}
-            <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: overlayOpacity / 100 }} />
+            <div className={`relative w-full bg-gray-100 overflow-hidden group mx-auto ${viewMode === 'desktop' ? 'aspect-[1.92/1]' : 'aspect-[0.51/1] max-w-[390px]'}`}>
+              {/* Show correct preview based on mode */}
+              {(viewMode === 'desktop' ? desktopPreview : (mobilePreview || desktopPreview)) ? (
+                <img 
+                  src={viewMode === 'desktop' ? desktopPreview : (mobilePreview || desktopPreview)} 
+                  className="absolute inset-0 w-full h-full object-cover" 
+                  alt="Preview" 
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                  <ImageIcon size={64} className="opacity-20 mb-4"/>
+                  <span className="text-sm font-bold uppercase tracking-widest opacity-50">Preview Area</span>
+                  <span className="text-xs mt-2 opacity-40">Images will be cropped to fit this box</span>
+                </div>
+              )}
+            </div>
+          </div>
 
-            {/* Draggable Button */}
-            {showButton && (
-              <motion.div
-                drag
-                dragMomentum={false} 
-                onDragEnd={handleDragEnd}
-                style={{ 
-                  position: 'absolute', 
-                  left: `${btn.x}%`, 
-                  top: `${btn.y}%`,
-                  x: '-50%', y: '-50%',
-                  zIndex: 50,
-                  cursor: 'move'
-                }}
-              >
-                <button 
-                  className={`
-                    whitespace-nowrap transition-all duration-300 pointer-events-none
-                    ${btn.fontSize} ${btn.fontFamily} ${btn.fontWeight}
-                    ${btn.isUppercase ? 'uppercase' : ''} ${btn.letterSpacing}
-                    ${btn.hasShadow ? 'shadow-xl' : 'shadow-sm'}
-                  `}
-                  style={{ 
-                    backgroundColor: btn.bgColor, 
-                    color: btn.color, 
-                    borderRadius: `${btn.borderRadius}px`,
-                    padding: `${btn.paddingY}px ${btn.paddingX}px`,
-                    border: btn.bgColor === 'transparent' ? `1px solid ${btn.color}` : 'none'
-                  }}
-                >
-                  {btn.text}
+          {/* UPLOAD CONTROLS */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <h3 className="text-sm font-bold uppercase tracking-widest mb-6">Upload New Slide</h3>
+            <form ref={formRef} action={handleAdd} className="space-y-6">
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Desktop Image <span className="text-red-500">*</span></label>
+                  <input type="file" name="image" accept="image/*" onChange={(e) => handleImageChange(e, 'desktop')} className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-100 file:text-black hover:file:bg-gray-200 cursor-pointer border border-gray-200 rounded-lg py-2" required />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Mobile Image (Optional)</label>
+                  <input type="file" name="mobileImage" accept="image/*" onChange={(e) => handleImageChange(e, 'mobile')} className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-100 file:text-black hover:file:bg-gray-200 cursor-pointer border border-gray-200 rounded-lg py-2" />
+                </div>
+              </div>
+
+              <div className="flex gap-6 items-end">
+                <div className="flex-[2]">
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Destination Link</label>
+                  <div className="flex items-center gap-3 border border-gray-200 p-3 rounded-lg focus-within:border-black transition-colors bg-white">
+                    <LinkIcon size={16} className="text-gray-400" />
+                    <input name="link" placeholder="/collections/winter" className="flex-1 text-sm outline-none font-medium text-gray-800 placeholder-gray-300" />
+                  </div>
+                </div>
+                <button disabled={isUploading} className="flex-1 bg-black text-white px-8 py-3.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gray-800 disabled:opacity-50 transition-all flex justify-center items-center gap-2">
+                  {isUploading ? <Loader2 className="animate-spin" size={16}/> : 'PUBLISH'}
                 </button>
-              </motion.div>
-            )}
+              </div>
+            </form>
           </div>
         </div>
 
-        {/* --- RIGHT: PROPERTIES --- */}
-        <div className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto flex flex-col shrink-0 z-30">
-          <form ref={formRef} action={handleAdd} className="flex flex-col gap-6">
-            
-            {/* Uploads */}
-            <div>
-              <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Desktop Image</label>
-              <input type="file" name="image" accept="image/*" onChange={(e) => handleImageChange(e, 'desktop')} className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer" required />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Mobile Image (Optional)</label>
-              <input type="file" name="mobileImage" accept="image/*" onChange={(e) => handleImageChange(e, 'mobile')} className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer" />
-            </div>
-
-            <div className="border-b border-gray-100 pb-6">
-              <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 flex justify-between">
-                <span>Overlay Opacity</span> <span>{overlayOpacity}%</span>
-              </label>
-              <input type="range" min="0" max="90" value={overlayOpacity} onChange={(e) => setOverlayOpacity(e.target.value)} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black" />
-            </div>
-
-            {/* Button Toggle */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase">Show Button</span>
-              <button 
-                type="button" 
-                onClick={() => setShowButton(!showButton)}
-                className={`w-10 h-5 rounded-full relative transition-colors ${showButton ? 'bg-black' : 'bg-gray-300'}`}
-              >
-                <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${showButton ? 'left-6' : 'left-1'}`} />
-              </button>
-            </div>
-
-            {/* Button Settings (Conditional) */}
-            {showButton && (
-              <div className="space-y-5 animate-in fade-in duration-300">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Label & Link</label>
-                  <input value={btn.text} onChange={(e) => updateBtn({ text: e.target.value })} className="w-full border p-2 rounded text-sm mb-2" placeholder="Text" />
-                  <input value={btn.link} onChange={(e) => updateBtn({ link: e.target.value })} className="w-full border p-2 rounded text-sm" placeholder="Link (e.g. /shop)" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Font</label>
-                    <select value={btn.fontFamily} onChange={(e) => updateBtn({ fontFamily: e.target.value })} className="w-full border p-2 rounded text-xs bg-white">
-                      {FONTS.map(f => <option key={f.val} value={f.val}>{f.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Style</label>
-                    <button type="button" onClick={() => updateBtn({ isUppercase: !btn.isUppercase })} className={`w-full border p-2 rounded text-xs ${btn.isUppercase ? 'bg-black text-white' : ''}`}>CAPS</button>
+        {/* RIGHT: ACTIVE SLIDES */}
+        <div className="lg:col-span-4 space-y-6">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500">History</h3>
+          
+          <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2 custom-scrollbar">
+            {slides.map((slide) => (
+              <div key={slide._id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200 transition-all hover:shadow-md hover:border-gray-300">
+                
+                {/* Mini Preview */}
+                <div className="relative w-full aspect-[1.92/1] bg-gray-100">
+                  <img 
+                    src={slide.imageDesktop} 
+                    alt="Slide" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" />
+                  
+                  {/* Link Badge */}
+                  <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-md px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                    <ExternalLink size={8} /> {slide.link}
                   </div>
                 </div>
 
-                {/* Colors */}
-                <div className="flex gap-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">BG</label>
-                    <input type="color" value={btn.bgColor} onChange={(e) => updateBtn({ bgColor: e.target.value })} className="h-8 w-12 cursor-pointer border rounded"/>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Text</label>
-                    <input type="color" value={btn.color} onChange={(e) => updateBtn({ color: e.target.value })} className="h-8 w-12 cursor-pointer border rounded"/>
-                  </div>
-                </div>
-
-                {/* Dimensions */}
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Radius & Size</label>
-                  <input type="range" min="0" max="50" value={btn.borderRadius} onChange={(e) => updateBtn({ borderRadius: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded mb-3"/>
-                  <div className="flex gap-2">
-                    <input type="number" value={btn.paddingX} onChange={(e) => updateBtn({ paddingX: Number(e.target.value) })} className="w-full border p-1 rounded text-xs" placeholder="W" />
-                    <input type="number" value={btn.paddingY} onChange={(e) => updateBtn({ paddingY: Number(e.target.value) })} className="w-full border p-1 rounded text-xs" placeholder="H" />
-                  </div>
+                {/* Delete Action (FIXED ID HERE) */}
+                <div className="p-3 flex justify-between items-center">
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    ID: {slide._id ? slide._id.slice(-6) : '...'}
+                  </span>
+                  <button 
+                    onClick={() => deleteSlide(slide._id)}
+                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                    title="Remove Slide"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
+            ))}
+            
+            {slides.length === 0 && (
+              <div className="py-20 text-center border-2 border-dashed border-gray-200 rounded-xl">
+                <ImageIcon size={48} className="mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-400 font-medium text-sm">No active slides</p>
+              </div>
             )}
-
-            <button disabled={isUploading} className="w-full bg-green-600 text-white py-3 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-green-700 disabled:opacity-50 mt-4 flex items-center justify-center gap-2">
-                {isUploading ? <Loader2 className="animate-spin" size={16}/> : 'PUBLISH SLIDE'}
-            </button>
-          </form>
-
-          {/* List */}
-          <div className="mt-8 pt-6 border-t border-gray-100">
-             <h4 className="text-[10px] font-bold text-gray-400 uppercase mb-3">Gallery ({slides.length})</h4>
-             <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-               {slides.map(slide => (
-                 <div key={slide._id} className="flex justify-between items-center p-2 rounded bg-gray-50 border border-gray-100 text-xs group">
-                   <span className="truncate max-w-[150px]">{slide.buttonLayer?.text || (slide.showButton ? "Button" : "No Button")}</span>
-                   <button onClick={() => deleteSlide(slide._id)} className="text-gray-300 hover:text-red-500 transition"><Trash2 size={14}/></button>
-                 </div>
-               ))}
-             </div>
           </div>
         </div>
 

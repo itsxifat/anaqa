@@ -7,12 +7,10 @@ import bcrypt from "bcryptjs";
 
 const handler = NextAuth({
   providers: [
-    // 1. Google Login
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    // 2. Custom Email/Password Login
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -22,14 +20,14 @@ const handler = NextAuth({
       async authorize(credentials) {
         await connectDB();
         const user = await User.findOne({ email: credentials.email });
-
-        if (!user) throw new Error("No user found with this email.");
-        if (!user.isVerified) throw new Error("Please verify your email first.");
+        if (!user) throw new Error("No user found.");
+        
+        // Allow unverified users to login if using credentials (optional, based on your logic)
+        // if (!user.isVerified) throw new Error("Verify email first.");
         
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) throw new Error("Invalid password.");
-
-        return { id: user._id, name: user.name, email: user.email };
+        return user;
       }
     })
   ],
@@ -39,7 +37,6 @@ const handler = NextAuth({
         await connectDB();
         const existingUser = await User.findOne({ email: user.email });
         if (!existingUser) {
-          // Auto-register Google User (Auto Verified)
           await User.create({
             name: user.name,
             email: user.email,
@@ -51,18 +48,33 @@ const handler = NextAuth({
       }
       return true;
     },
-    async session({ session, token }) {
-      if (token?.sub) {
-        session.user.id = token.sub;
+    // --- THIS IS THE FIX ---
+    // This runs every time the user loads a page. 
+    // We force it to check the DB for the NEW Name and Image.
+    async session({ session }) {
+      await connectDB();
+      const dbUser = await User.findOne({ email: session.user.email });
+      
+      if (dbUser) {
+        // OVERWRITE Session data with FRESH Database data
+        session.user.name = dbUser.name; // <--- Updates Name immediately
+        session.user.phone = dbUser.phone;
+        session.user.id = dbUser._id.toString();
+        
+        // Handle Custom Image vs Google Image
+        if (dbUser.customImage && dbUser.customImage.data) {
+          // Add timestamp ?t=... to force browser to ignore old cached image
+          session.user.image = `/api/user/avatar/${dbUser._id.toString()}?t=${new Date().getTime()}`;
+        } else {
+          session.user.image = dbUser.image;
+        }
       }
       return session;
     }
   },
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
-  pages: {
-    signIn: '/login', // Custom login page
-  }
+  pages: { signIn: '/login' }
 });
 
 export { handler as GET, handler as POST };
