@@ -11,15 +11,10 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
 
-  // Helper to get correct User ID (handles both MongoDB _id and NextAuth id)
+  // Determine current image source
   const userId = user.id || user._id; 
-
-  // Construct Image URL safely
-  // If we have a preview, use it. 
-  // Otherwise, if custom image exists (check logic), use API.
-  // Fallback to Google image or UI Avatars.
   const currentImageSrc = preview || 
-    (user.image && user.image.includes('googleusercontent') ? user.image : `/api/user/avatar/${userId}?t=${new Date().getTime()}`) ||
+    (user.image && user.image.includes('googleusercontent') ? user.image : `/api/user/avatar/${userId}?t=${Date.now()}`) ||
     `https://ui-avatars.com/api/?name=${user.name}`;
 
   const handleImageChange = (e) => {
@@ -33,10 +28,11 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
     const result = await updateUserProfile(formData);
     
     if (result.success) {
-      await update(); // Attempt to update session
-      window.location.reload(); // FORCE RELOAD to ensure new name/pic appears
+      await update(); // Update Client Session
+      // Force reload to reflect changes immediately
+      setTimeout(() => window.location.reload(), 300);
     } else {
-      alert("Failed to update profile. Please try again.");
+      alert("Failed to update profile.");
       setLoading(false);
     }
   };
@@ -45,83 +41,116 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* Backdrop */}
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100]" 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" 
             onClick={onClose}
           />
           
+          {/* Modal Container */}
           <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+            initial={{ opacity: 0, scale: 0.95, y: 10 }} 
             animate={{ opacity: 1, scale: 1, y: 0 }} 
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed inset-0 flex items-center justify-center z-[110] pointer-events-none"
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="fixed inset-0 flex items-center justify-center z-[110] p-4 pointer-events-none"
           >
-            <div className="bg-white w-full max-w-lg p-0 rounded-3xl shadow-2xl pointer-events-auto overflow-hidden mx-4">
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
               
-              <div className="bg-gray-50 px-8 py-6 border-b border-gray-100 flex justify-between items-center">
-                <div>
-                  <h2 className="font-playfair text-2xl font-bold text-gray-900">Edit Profile</h2>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Update your personal details</p>
+              {/* Left Side: Image & Basic Info (Visual) */}
+              <div className="bg-gray-50 p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 md:w-1/3">
+                <div className="relative group cursor-pointer mb-4">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg group-hover:border-gray-200 transition-colors">
+                    <img 
+                      src={currentImageSrc} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${user.name}` }}
+                    />
+                  </div>
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-all rounded-full cursor-pointer">
+                    <Camera className="text-white" size={24} />
+                    <input type="file" name="image" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  </label>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition shadow-sm border border-transparent hover:border-gray-200">
-                  <X size={18} className="text-gray-500" />
-                </button>
+                <h3 className="text-lg font-bold text-gray-900 text-center">{user.name}</h3>
+                <p className="text-xs text-gray-500 text-center">{user.email}</p>
               </div>
 
-              <div className="p-8">
-                <form action={handleSubmit} className="space-y-8">
+              {/* Right Side: Form (Functional) */}
+              <div className="flex-1 p-8 flex flex-col">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Edit Profile</h2>
+                    <p className="text-xs text-gray-500 mt-1">Make changes to your account details.</p>
+                  </div>
+                  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form action={handleSubmit} className="flex-1 flex flex-col gap-5">
                   <input type="hidden" name="email" value={user.email} />
 
-                  {/* Image Upload */}
-                  <div className="flex justify-center -mt-2">
-                    <div className="relative group cursor-pointer">
-                      <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-xl group-hover:border-gold-500/30 transition-all duration-300">
-                        {/* FIX: Handle image error by hiding/showing fallback */}
-                        <img 
-                          src={currentImageSrc}
-                          onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${user.name}` }} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-                      <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full cursor-pointer backdrop-blur-[2px]">
-                        <Camera className="text-white drop-shadow-md" size={28} strokeWidth={1.5} />
-                        <input type="file" name="image" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  <div className="space-y-4">
+                    {/* Name Input */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                        <User size={12} /> Full Name
                       </label>
+                      <input 
+                        name="name" 
+                        defaultValue={user.name} 
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:border-black focus:ring-0 outline-none transition-all placeholder:text-gray-400" 
+                        required 
+                      />
+                    </div>
+
+                    {/* Phone Input */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                        <Phone size={12} /> Phone Number
+                      </label>
+                      <input 
+                        name="phone" 
+                        defaultValue={user.phone} 
+                        placeholder="+1 (555) 000-0000" 
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:border-black focus:ring-0 outline-none transition-all placeholder:text-gray-400" 
+                      />
+                    </div>
+
+                    {/* Email Input (Read-only) */}
+                    <div className="space-y-1 opacity-60">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                        <Mail size={12} /> Email Address
+                      </label>
+                      <input 
+                        value={user.email} 
+                        readOnly 
+                        className="w-full px-4 py-2.5 bg-gray-100 border border-transparent rounded-lg text-sm text-gray-500 cursor-not-allowed" 
+                      />
                     </div>
                   </div>
 
-                  {/* Inputs */}
-                  <div className="space-y-5">
-                    <div className="group">
-                      <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
-                        <User size={12}/> Full Name
-                      </label>
-                      <input name="name" defaultValue={user.name} className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-black transition-all" required />
-                    </div>
-                    
-                    <div className="group">
-                      <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
-                        <Phone size={12}/> Phone Number
-                      </label>
-                      <input name="phone" defaultValue={user.phone} placeholder="+1 234 567 890" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-black transition-all" />
-                    </div>
-
-                    <div className="opacity-60">
-                      <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
-                        <Mail size={12}/> Email Address
-                      </label>
-                      <input value={user.email} readOnly className="w-full p-4 bg-gray-100 border border-transparent rounded-xl text-sm text-gray-500 cursor-not-allowed" />
-                    </div>
+                  {/* Actions */}
+                  <div className="mt-auto pt-6 flex justify-end gap-3">
+                    <button 
+                      type="button" 
+                      onClick={onClose} 
+                      className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      disabled={loading} 
+                      className="px-6 py-2.5 rounded-lg text-sm font-bold text-white bg-black hover:bg-gray-800 disabled:opacity-70 transition-all flex items-center gap-2"
+                    >
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save Changes</>}
+                    </button>
                   </div>
-
-                  <button disabled={loading} className="w-full bg-black text-white py-4 rounded-xl text-xs font-bold uppercase tracking-[0.2em] hover:bg-gray-900 disabled:opacity-70 transition-all flex justify-center items-center gap-3">
-                    {loading ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> SAVE CHANGES</>}
-                  </button>
-
                 </form>
               </div>
+
             </div>
           </motion.div>
         </>
