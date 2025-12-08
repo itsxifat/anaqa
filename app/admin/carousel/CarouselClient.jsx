@@ -3,9 +3,9 @@
 import { addSlide, deleteSlide } from '@/app/actions';
 import { useRef, useState, useEffect } from 'react';
 import { 
-  Trash2, UploadCloud, Loader2, Link as LinkIcon, 
+  Trash2, Loader2, Link as LinkIcon, 
   Smartphone, Monitor, Image as ImageIcon, ExternalLink,
-  CheckCircle2, XCircle, AlertCircle
+  CheckCircle2, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -45,7 +45,7 @@ export default function CarouselClient({ slides }) {
   const [desktopPreview, setDesktopPreview] = useState(null);
   const [mobilePreview, setMobilePreview] = useState(null);
   const [viewMode, setViewMode] = useState('desktop'); 
-  const [notification, setNotification] = useState(null); // Notification State
+  const [notification, setNotification] = useState(null);
 
   // Clear notification after 3s
   useEffect(() => {
@@ -86,7 +86,6 @@ export default function CarouselClient({ slides }) {
   return (
     <div className="min-h-screen bg-[#f4f4f4] text-gray-900 font-manrope pb-20 relative">
       
-      {/* Notifications */}
       <AnimatePresence>
         {notification && <Toast notification={notification} onClose={() => setNotification(null)} />}
       </AnimatePresence>
@@ -114,7 +113,7 @@ export default function CarouselClient({ slides }) {
         {/* LEFT: UPLOAD & PREVIEW */}
         <div className="lg:col-span-8 space-y-8">
           
-          {/* THE PREVIEW CONTAINER - EXACT RATIO SIMULATION */}
+          {/* THE PREVIEW CONTAINER */}
           <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200">
             <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 mb-1">
               {viewMode === 'desktop' ? <Monitor size={14} className="text-gray-400" /> : <Smartphone size={14} className="text-gray-400" />}
@@ -124,7 +123,6 @@ export default function CarouselClient({ slides }) {
             </div>
             
             <div className={`relative w-full bg-gray-100 overflow-hidden group mx-auto ${viewMode === 'desktop' ? 'aspect-[1.92/1]' : 'aspect-[0.51/1] max-w-[390px]'}`}>
-              {/* Show correct preview based on mode */}
               {(viewMode === 'desktop' ? desktopPreview : (mobilePreview || desktopPreview)) ? (
                 <img 
                   src={viewMode === 'desktop' ? desktopPreview : (mobilePreview || desktopPreview)} 
@@ -183,8 +181,9 @@ export default function CarouselClient({ slides }) {
                 
                 {/* Mini Preview */}
                 <div className="relative w-full aspect-[1.92/1] bg-gray-100">
+                  {/* DIRECT PATH USAGE */}
                   <img 
-                    src={slide.imageDesktop} 
+                    src={slide.image || '/placeholder.jpg'} 
                     alt="Slide" 
                     className="w-full h-full object-cover"
                   />
@@ -196,7 +195,7 @@ export default function CarouselClient({ slides }) {
                   </div>
                 </div>
 
-                {/* Delete Action (FIXED ID HERE) */}
+                {/* Delete Action */}
                 <div className="p-3 flex justify-between items-center">
                   <span className="text-[10px] text-gray-400 font-mono">
                     ID: {slide._id ? slide._id.slice(-6) : '...'}

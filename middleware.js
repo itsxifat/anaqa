@@ -1,21 +1,28 @@
-import { NextResponse } from 'next/server'
- 
-export function middleware(request) {
+// anaqa/middleware.js
+import { NextResponse } from 'next/server';
+import { verifyAdminToken } from '@/lib/auth'; // IMPORT FROM AUTH.JS
+
+export async function middleware(request) {
   const path = request.nextUrl.pathname;
 
-  // Only run on admin pages
+  // Protect Admin Routes
   if (path.startsWith('/admin')) {
-    const adminSession = request.cookies.get('admin_session');
+    const adminCookie = request.cookies.get('admin_session');
+    const token = adminCookie?.value;
 
-    // If we have a session, allow access
-    if (adminSession?.value === 'true') {
-      return NextResponse.next();
+    // Verify the cryptographic signature
+    const isValid = await verifyAdminToken(token);
+
+    if (!isValid) {
+      const response = NextResponse.next();
+      if (token) {
+        response.cookies.delete('admin_session');
+      }
+      // You might want to redirect to login here if strict protection is needed
+      // return NextResponse.redirect(new URL('/admin/login', request.url));
+      return response;
     }
-    
-    // If not, simply let the page load (the Page component handles showing the Login Form)
-    // Or strictly redirect to a login page if you separate them.
-    // For this example, our page handles both states, so we actually don't strictly need to redirect,
-    // but the logic is here if you want to enforce it.
-    return NextResponse.next(); 
   }
+  
+  return NextResponse.next();
 }

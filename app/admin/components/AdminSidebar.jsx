@@ -2,17 +2,29 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Images, Settings, Monitor, LogOut, Menu, X, ChevronRight, Layers } from 'lucide-react';
-import { Users } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Images, 
+  Settings, 
+  Monitor, 
+  LogOut, 
+  Menu, 
+  X, 
+  ChevronRight, 
+  Layers, 
+  Users, 
+  ShoppingBag // Imported ShoppingBag icon
+} from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SidebarContent = ({ activePath, onClickItem }) => {
  const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/products', label: 'Products', icon: ShoppingBag }, // Added Products Tab
   { href: '/admin/carousel', label: 'Carousel Studio', icon: Images },
   { href: '/admin/categories', label: 'Categories', icon: Layers },
-  { href: '/admin/users', label: 'User Management', icon: Users }, // NEW
+  { href: '/admin/users', label: 'User Management', icon: Users },
   { href: '/admin/navbar', label: 'Navigation', icon: Monitor },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
@@ -36,7 +48,9 @@ const SidebarContent = ({ activePath, onClickItem }) => {
       <nav className="flex-1 px-4 space-y-1 mt-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activePath === item.href;
+          // Check if path starts with the href (for sub-routes like /admin/products/new)
+          const isActive = activePath === item.href || (item.href !== '/admin/dashboard' && activePath.startsWith(item.href));
+          
           return (
             <Link
               key={item.href}

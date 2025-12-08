@@ -6,58 +6,55 @@ import Hero from '@/models/Hero';
 import Category from '@/models/Category';
 import SiteContent from '@/models/SiteContent';
 import User from '@/models/User';
+import Product from '@/models/Product';
 import { revalidatePath } from 'next/cache';
+import { signAdminToken } from '@/lib/auth'; 
+import { saveFileToPublic } from '@/lib/storage';
 
-// --- 1. ADMIN AUTHENTICATION ---
+function generateSlug(text) {
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+}
+
+// 1. ADMIN AUTHENTICATION
 export async function loginAction(formData) {
   const password = formData.get('password');
-  // Check against Environment Variable
   if (password === process.env.ADMIN_PASSWORD) {
+    const token = await signAdminToken();
     const cookieStore = await cookies(); 
-    cookieStore.set('admin_session', 'true', { 
+    cookieStore.set('admin_session', token, { 
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production', 
-      maxAge: 60 * 60 * 24 // 1 day
+      maxAge: 60 * 60 * 24, 
+      sameSite: 'strict'
     });
     return { success: true };
   }
   return { success: false, error: 'Invalid Password' };
 }
 
-// --- 2. HERO CAROUSEL ACTIONS ---
+// 2. HERO CAROUSEL ACTIONS
 export async function addSlide(formData) {
   await connectDB();
+  const imageFile = formData.get('image'); 
+  const mobileImageFile = formData.get('mobileImage');
 
-  const imageFile = formData.get('image'); // Desktop
-  
   if (!imageFile || imageFile.size === 0) {
     return { error: 'Desktop Image is required' };
   }
 
-  // Process Desktop Image
-  const bytes = await imageFile.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  // Process Mobile Image (Optional)
-  const mobileImageFile = formData.get('mobileImage');
-  let mobileBuffer = null;
-  let mobileType = null;
-  
-  if (mobileImageFile && mobileImageFile.size > 0) {
-    const mBytes = await mobileImageFile.arrayBuffer();
-    mobileBuffer = Buffer.from(mBytes);
-    mobileType = mobileImageFile.type;
-  }
-
   try {
-    const link = formData.get('link') || '/';
+    const desktopPath = await saveFileToPublic(imageFile);
+    const mobilePath = await saveFileToPublic(mobileImageFile);
 
     await Hero.create({
-      link,
-      image: { data: buffer, contentType: imageFile.type },
-      ...(mobileBuffer && {
-        mobileImage: { data: mobileBuffer, contentType: mobileType }
-      })
+      link: formData.get('link') || '/',
+      image: desktopPath,
+      mobileImage: mobilePath
     });
 
     revalidatePath('/');
@@ -77,7 +74,7 @@ export async function deleteSlide(id) {
   return { success: true };
 }
 
-// --- 3. CATEGORY ACTIONS ---
+// 3. CATEGORY ACTIONS
 export async function createCategory(formData) {
   await connectDB();
   const name = formData.get('name');
@@ -103,7 +100,8 @@ export async function deleteCategory(id) {
 
 export async function getCategories() {
   await connectDB();
-  const categories = await Category.find().lean();
+  const categoriesRaw = await Category.find().lean();
+  const categories = JSON.parse(JSON.stringify(categoriesRaw));
   
   const buildTree = (cats, parentId = null) => {
     return cats
@@ -117,7 +115,7 @@ export async function getCategories() {
   return buildTree(categories, null);
 }
 
-// --- 4. NAVBAR CONFIG ACTIONS ---
+// 4. NAVBAR ACTIONS
 export async function saveNavbarConfig(links) {
   await connectDB();
   try {
@@ -133,106 +131,180 @@ export async function saveNavbarConfig(links) {
   }
 }
 
-// --- 5. USER MANAGEMENT ACTIONS (ADMIN) ---
+// 5. USER ACTIONS
 export async function getUsers(query = '') {
   await connectDB();
   try {
     const searchFilter = query
-      ? { 
-          $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { email: { $regex: query, $options: 'i' } }
-          ] 
-        }
+      ? { $or: [{ name: { $regex: query, $options: 'i' } }, { email: { $regex: query, $options: 'i' } }] }
       : {};
-
-    const users = await User.find(searchFilter).sort({ createdAt: -1 }).lean();
-    
-    return users.map(user => ({
-      ...user,
-      _id: user._id.toString(),
-      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString()
-    }));
+    const usersData = await User.find(searchFilter).sort({ createdAt: -1 }).lean();
+    return JSON.parse(JSON.stringify(usersData));
   } catch (error) {
-    console.error('Fetch Users Error:', error);
     return [];
   }
 }
 
 export async function toggleUserBan(id, currentStatus) {
   await connectDB();
-  try {
-    await User.findByIdAndUpdate(id, { isBanned: !currentStatus });
-    revalidatePath('/admin/users');
-    return { success: true };
-  } catch (error) {
-    return { error: 'Failed to update ban status' };
-  }
+  await User.findByIdAndUpdate(id, { isBanned: !currentStatus });
+  revalidatePath('/admin/users');
+  return { success: true };
 }
 
 export async function toggleUserRole(id, currentRole) {
   await connectDB();
-  try {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    await User.findByIdAndUpdate(id, { role: newRole });
-    revalidatePath('/admin/users');
-    return { success: true };
-  } catch (error) {
-    return { error: 'Failed to update role' };
-  }
+  const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  await User.findByIdAndUpdate(id, { role: newRole });
+  revalidatePath('/admin/users');
+  return { success: true };
 }
 
 export async function deleteUser(id) {
   await connectDB();
-  try {
-    await User.findByIdAndDelete(id);
-    revalidatePath('/admin/users');
-    return { success: true };
-  } catch (error) {
-    return { error: 'Failed to delete user' };
-  }
+  await User.findByIdAndDelete(id);
+  revalidatePath('/admin/users');
+  return { success: true };
 }
 
-// --- 6. USER PROFILE UPDATE (CLIENT) ---
+// 6. PROFILE UPDATE (Fixed Logic)
 export async function updateUserProfile(formData) {
   await connectDB();
-  
   const email = formData.get('email');
   const name = formData.get('name');
   const phone = formData.get('phone');
   const imageFile = formData.get('image');
 
+  console.log("Updating Profile For:", email);
+
   try {
     const user = await User.findOne({ email });
     if (!user) return { error: "User not found" };
 
-    // Update Text Fields
     if (name) user.name = name;
     if (phone) user.phone = phone;
 
-    // Update Image if provided
     if (imageFile && imageFile.size > 0) {
-      const bytes = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(bytes);
+      console.log("Processing Image Upload...");
+      const imagePath = await saveFileToPublic(imageFile);
+      console.log("Image Saved to:", imagePath);
       
-      // Save binary data to DB
-      user.customImage = {
-        data: buffer,
-        contentType: imageFile.type
-      };
-      // IMPORTANT: Remove the google URL string so the app logic switches to customImage
-      user.image = null; 
+      // Update the user image field directly
+      user.image = imagePath;
     }
 
     await user.save();
-    
-    // Refresh all relevant paths so the UI updates immediately
+    console.log("User Saved Successfully");
+
     revalidatePath('/account'); 
     revalidatePath('/', 'layout'); 
-    
     return { success: true };
   } catch (error) {
-    console.error("Profile Update Error:", error);
+    console.error("Update Profile Error:", error);
     return { error: "Failed to update profile" };
   }
+}
+
+// 7. PRODUCT MANAGEMENT
+export async function createProduct(formData) {
+  await connectDB();
+  
+  try {
+    const name = formData.get('name');
+    const description = formData.get('description');
+    const price = parseFloat(formData.get('price'));
+    const discountPrice = formData.get('discountPrice') ? parseFloat(formData.get('discountPrice')) : null;
+    const category = formData.get('category');
+    const stock = parseInt(formData.get('stock'));
+    
+    const images = formData.getAll('images'); 
+    const imagePaths = [];
+
+    for (const file of images) {
+      if (file.size > 0) {
+        const path = await saveFileToPublic(file);
+        if (path) imagePaths.push(path);
+      }
+    }
+
+    const slug = generateSlug(name) + '-' + Date.now(); 
+
+    const newProduct = new Product({
+      name, slug, description, price, discountPrice, category, stock,
+      images: imagePaths
+    });
+
+    await newProduct.save();
+    revalidatePath('/admin/products');
+    revalidatePath('/product'); 
+    return { success: true };
+  } catch (error) {
+    return { error: "Failed to create product" };
+  }
+}
+
+export async function getAdminProducts() {
+  await connectDB();
+  const productsRaw = await Product.find().sort({ createdAt: -1 }).populate('category', 'name').lean();
+  const products = JSON.parse(JSON.stringify(productsRaw));
+  return products.map(p => ({
+    ...p,
+    images: p.images && p.images.length > 0 ? p.images : ['/placeholder.jpg']
+  }));
+}
+
+export async function deleteProduct(id) {
+  await connectDB();
+  await Product.findByIdAndDelete(id);
+  revalidatePath('/admin/products');
+  revalidatePath('/product');
+  return { success: true };
+}
+
+export async function getProductBySlug(slug) {
+  await connectDB();
+  try {
+    const productRaw = await Product.findOneAndUpdate(
+      { slug }, 
+      { $inc: { views: 1 } }, 
+      { new: true }
+    ).populate('category').lean();
+
+    if (!productRaw) return null;
+    const product = JSON.parse(JSON.stringify(productRaw));
+
+    return {
+      ...product,
+      images: product.images && product.images.length > 0 ? product.images : ['/placeholder.jpg'],
+      reviews: product.reviews || []
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function getAllProducts() {
+  await connectDB();
+  const productsRaw = await Product.find().sort({ createdAt: -1 }).populate('category', 'name slug').lean();
+  const products = JSON.parse(JSON.stringify(productsRaw));
+  return products.map(p => ({
+    ...p,
+    images: p.images && p.images.length > 0 ? p.images : ['/placeholder.jpg']
+  }));
+}
+
+export async function getRelatedProducts(categoryId, currentProductId) {
+  await connectDB();
+  try {
+    const productsRaw = await Product.find({
+      category: categoryId,
+      _id: { $ne: currentProductId } 
+    }).limit(4).lean();
+
+    const products = JSON.parse(JSON.stringify(productsRaw));
+    return products.map(p => ({
+      ...p,
+      images: p.images && p.images.length > 0 ? p.images : ['/placeholder.jpg']
+    }));
+  } catch (error) { return []; }
 }

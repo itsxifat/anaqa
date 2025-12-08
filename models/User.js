@@ -1,3 +1,4 @@
+// anaqa/models/User.js
 import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema({
@@ -5,14 +6,13 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String },
   phone: { type: String },
-  image: { type: String }, // Stores Google URL
+  
+  // CHANGED: Unified image field. Can be Google URL or Local Path
+  image: { type: String }, 
+  
   provider: { type: String, enum: ['credentials', 'google'], default: 'credentials' },
   
-  // Custom Uploaded Image (Buffer)
-  customImage: {
-    data: Buffer,
-    contentType: String
-  },
+  // customImage field is removed/deprecated in favor of 'image' string
 
   isVerified: { type: Boolean, default: false },
   otp: { type: String },

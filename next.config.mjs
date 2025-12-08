@@ -1,12 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Add this line to ensure source maps are hidden in production
+  productionBrowserSourceMaps: false, 
+
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb', // Increased from default 1mb
+      bodySizeLimit: '50mb',
     },
   },
-  // Ensure mongoose doesn't cause bundling issues
-  serverExternalPackages: ["mongoose"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

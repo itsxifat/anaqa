@@ -11,11 +11,8 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
 
-  // Determine current image source
-  const userId = user.id || user._id; 
-  const currentImageSrc = preview || 
-    (user.image && user.image.includes('googleusercontent') ? user.image : `/api/user/avatar/${userId}?t=${Date.now()}`) ||
-    `https://ui-avatars.com/api/?name=${user.name}`;
+  // Use the direct image path from session user
+  const currentImageSrc = preview || user.image || `https://ui-avatars.com/api/?name=${user.name}`;
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -28,9 +25,12 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
     const result = await updateUserProfile(formData);
     
     if (result.success) {
-      await update(); // Update Client Session
-      // Force reload to reflect changes immediately
-      setTimeout(() => window.location.reload(), 300);
+      // 1. Update session client-side
+      await update(); 
+      // 2. Force a reload to ensure the new image is fetched fresh from server
+      setTimeout(() => {
+        window.location.reload(); 
+      }, 500);
     } else {
       alert("Failed to update profile.");
       setLoading(false);
@@ -41,14 +41,12 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" 
             onClick={onClose}
           />
           
-          {/* Modal Container */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 10 }} 
             animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -57,7 +55,7 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
           >
             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
               
-              {/* Left Side: Image & Basic Info (Visual) */}
+              {/* Left Side: Image & Basic Info */}
               <div className="bg-gray-50 p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 md:w-1/3">
                 <div className="relative group cursor-pointer mb-4">
                   <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg group-hover:border-gray-200 transition-colors">
@@ -77,7 +75,7 @@ export default function EditProfileModal({ user, isOpen, onClose }) {
                 <p className="text-xs text-gray-500 text-center">{user.email}</p>
               </div>
 
-              {/* Right Side: Form (Functional) */}
+              {/* Right Side: Form */}
               <div className="flex-1 p-8 flex flex-col">
                 <div className="flex justify-between items-start mb-6">
                   <div>

@@ -7,32 +7,24 @@ import SiteContent from "@/models/SiteContent";
 export default async function Home() {
   await connectDB();
   
-  // 1. Fetch Navbar Config
   const siteContent = await SiteContent.findOne({ identifier: 'main_layout' }).lean();
-  
-  // DATA FIX: Serialize Mongoose Objects for Client Component
   const navData = {
     logoImage: "/logo.png",
     logoText: "ANAQA",
     links: siteContent?.navbarLinks ? JSON.parse(JSON.stringify(siteContent.navbarLinks)) : [] 
   };
 
-  // 2. Fetch Hero Slides
-  const slides = await HeroModel.find({}, '-image.data -mobileImage.data').sort({ createdAt: -1 }).lean();
+  const slides = await HeroModel.find({}).sort({ createdAt: -1 }).lean();
   const heroData = slides.map(slide => ({
     id: slide._id.toString(),
     link: slide.link || '/',
-    // Removed buttonLayer props as requested
-    imageDesktop: `/api/images/${slide._id}`,
-    imageMobile: slide.mobileImage ? `/api/images/${slide._id}?mobile=true` : null
+    imageDesktop: slide.image || '/placeholder.jpg',
+    imageMobile: slide.mobileImage || null
   }));
 
   return (
     <main className="min-h-screen bg-white">
-      {/* Navbar stays fixed at the top */}
       <Navbar navData={navData} />
-      
-      {/* Hero fills the rest of the screen */}
       {heroData.length > 0 ? (
         <Hero heroData={heroData} />
       ) : (

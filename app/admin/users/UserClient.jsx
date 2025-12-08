@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Search, Shield, ShieldAlert, Ban, Trash2, CheckCircle2, 
-  User as UserIcon, Mail, Phone, MoreHorizontal, Loader2 
+  User as UserIcon, Mail, Phone, Loader2 
 } from 'lucide-react';
 
 export default function UserClient({ initialUsers }) {
@@ -85,7 +85,7 @@ export default function UserClient({ initialUsers }) {
               {initialUsers.map((user) => (
                 <div key={user._id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-gray-50/80 transition-colors group">
                   
-                  {/* 1. Identity (FIXED: Handling missing name/image) */}
+                  {/* 1. Identity */}
                   <div className="col-span-4 flex items-center gap-4 pl-2">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold font-playfair overflow-hidden
                       ${user.image ? '' : 'bg-gray-100 text-gray-600'}`}
@@ -93,7 +93,6 @@ export default function UserClient({ initialUsers }) {
                       {user.image ? (
                         <img src={user.image} alt={user.name || 'User'} className="w-full h-full object-cover" />
                       ) : (
-                        // Safety check: Use 'U' if name is missing
                         (user.name || 'U').charAt(0).toUpperCase()
                       )}
                     </div>

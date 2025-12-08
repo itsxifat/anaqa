@@ -22,9 +22,6 @@ const handler = NextAuth({
         const user = await User.findOne({ email: credentials.email });
         if (!user) throw new Error("No user found.");
         
-        // Allow unverified users to login if using credentials (optional, based on your logic)
-        // if (!user.isVerified) throw new Error("Verify email first.");
-        
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) throw new Error("Invalid password.");
         return user;
@@ -40,7 +37,7 @@ const handler = NextAuth({
           await User.create({
             name: user.name,
             email: user.email,
-            image: user.image,
+            image: user.image, // Stores Google Image URL
             provider: 'google',
             isVerified: true
           });
@@ -48,26 +45,20 @@ const handler = NextAuth({
       }
       return true;
     },
-    // --- THIS IS THE FIX ---
-    // This runs every time the user loads a page. 
-    // We force it to check the DB for the NEW Name and Image.
+    // CRITICAL FIX: Ensure session returns the LATEST database image
     async session({ session }) {
       await connectDB();
-      const dbUser = await User.findOne({ email: session.user.email });
+      // Explicitly select the 'image' field (string path)
+      const dbUser = await User.findOne({ email: session.user.email }).select('name phone image role _id');
       
       if (dbUser) {
-        // OVERWRITE Session data with FRESH Database data
-        session.user.name = dbUser.name; // <--- Updates Name immediately
-        session.user.phone = dbUser.phone;
         session.user.id = dbUser._id.toString();
+        session.user.name = dbUser.name;
+        session.user.phone = dbUser.phone;
+        session.user.role = dbUser.role;
         
-        // Handle Custom Image vs Google Image
-        if (dbUser.customImage && dbUser.customImage.data) {
-          // Add timestamp ?t=... to force browser to ignore old cached image
-          session.user.image = `/api/user/avatar/${dbUser._id.toString()}?t=${new Date().getTime()}`;
-        } else {
-          session.user.image = dbUser.image;
-        }
+        // This makes sure we use the new string path (e.g. "/uploads/uuid.jpg")
+        session.user.image = dbUser.image || null;
       }
       return session;
     }
