@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import CategorySection from "@/components/CategorySection"; // <--- 1. Import this
 import connectDB from "@/lib/db";
 import HeroModel from "@/models/Hero";
 import SiteContent from "@/models/SiteContent";
@@ -7,6 +8,7 @@ import SiteContent from "@/models/SiteContent";
 export default async function Home() {
   await connectDB();
   
+  // Fetch Navbar Data
   const siteContent = await SiteContent.findOne({ identifier: 'main_layout' }).lean();
   const navData = {
     logoImage: "/logo.png",
@@ -14,6 +16,7 @@ export default async function Home() {
     links: siteContent?.navbarLinks ? JSON.parse(JSON.stringify(siteContent.navbarLinks)) : [] 
   };
 
+  // Fetch Hero Data
   const slides = await HeroModel.find({}).sort({ createdAt: -1 }).lean();
   const heroData = slides.map(slide => ({
     id: slide._id.toString(),
@@ -25,6 +28,8 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-white">
       <Navbar navData={navData} />
+      
+      {/* Hero Carousel Area */}
       {heroData.length > 0 ? (
         <Hero heroData={heroData} />
       ) : (
@@ -32,6 +37,10 @@ export default async function Home() {
           <p className="text-sm uppercase tracking-widest">Carousel Empty</p>
         </div>
       )}
+
+      {/* 2. New Category Section */}
+      <CategorySection />
+
     </main>
   );
 }

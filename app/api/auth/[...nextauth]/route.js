@@ -5,7 +5,8 @@ import connectDB from "@/lib/db";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 
-const handler = NextAuth({
+// 1. Define authOptions separately and EXPORT it so other files can use it
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -21,7 +22,6 @@ const handler = NextAuth({
         await connectDB();
         const user = await User.findOne({ email: credentials.email });
         if (!user) throw new Error("No user found.");
-        
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) throw new Error("Invalid password.");
         return user;
@@ -37,7 +37,7 @@ const handler = NextAuth({
           await User.create({
             name: user.name,
             email: user.email,
-            image: user.image, // Stores Google Image URL
+            image: user.image,
             provider: 'google',
             isVerified: true
           });
@@ -45,11 +45,14 @@ const handler = NextAuth({
       }
       return true;
     },
-    // CRITICAL FIX: Ensure session returns the LATEST database image
     async session({ session }) {
       await connectDB();
-      // Explicitly select the 'image' field (string path)
-      const dbUser = await User.findOne({ email: session.user.email }).select('name phone image role _id');
+      
+      // DEBUG LOG
+      console.log(`>>> SESSION DEBUG: Fetching user ${session.user.email}`);
+
+      const dbUser = await User.findOne({ email: session.user.email })
+        .select('name phone image role _id profilePicture');
       
       if (dbUser) {
         session.user.id = dbUser._id.toString();
@@ -57,8 +60,18 @@ const handler = NextAuth({
         session.user.phone = dbUser.phone;
         session.user.role = dbUser.role;
         
-        // This makes sure we use the new string path (e.g. "/uploads/uuid.jpg")
-        session.user.image = dbUser.image || null;
+        // DEBUG LOGS
+        const hasEncrypted = dbUser.profilePicture && dbUser.profilePicture.iv;
+        console.log(`>>> SESSION DEBUG: Has Public Image? ${!!dbUser.image}`);
+        console.log(`>>> SESSION DEBUG: Has Encrypted Profile? ${!!hasEncrypted}`);
+
+        if (hasEncrypted) {
+          session.user.image = `/api/user/avatar/${dbUser._id.toString()}?t=${Date.now()}`;
+          console.log(`>>> SESSION DEBUG: Using API URL: ${session.user.image}`);
+        } else {
+          session.user.image = dbUser.image || null;
+          console.log(`>>> SESSION DEBUG: Using Public/Google URL`);
+        }
       }
       return session;
     }
@@ -66,6 +79,9 @@ const handler = NextAuth({
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
   pages: { signIn: '/login' }
-});
+};
+
+// 2. Pass the exported options to NextAuth
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

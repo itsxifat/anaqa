@@ -1,13 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add this line to ensure source maps are hidden in production
-  productionBrowserSourceMaps: false, 
+  productionBrowserSourceMaps: false,
+
+ 
+  allowedDevOrigins: [
+    'http://localhost:3000',
+    'http://[2400:3dc0:6a:5:ddab:92e:646e:28c7]:3000',
+    'https://yourdomain.com',
+    'https://www.yourdomain.com',
+  ],
 
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb',
     },
   },
+
   images: {
     remotePatterns: [
       {
