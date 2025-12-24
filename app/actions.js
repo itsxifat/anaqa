@@ -14,6 +14,7 @@ import { saveFileToPublic, deleteFileFromPublic } from '@/lib/storage';
 import { encryptBuffer } from '@/lib/encryption';   
 import { getServerSession } from "next-auth";
 import bcrypt from 'bcryptjs';
+import Address from '@/models/Address';
 
 function generateSlug(text) {
   return text.toString().toLowerCase()
@@ -627,5 +628,57 @@ export async function updateOrderStatus(orderId, newStatus) {
     return { success: true };
   } catch (error) {
     return { error: "Failed to update status" };
+  }
+}
+
+
+// --- ADDRESS MANAGEMENT ---
+export async function getSavedAddresses() {
+  await connectDB();
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) return [];
+
+  // Find User ID (Reuse logic from getUserOrders)
+  let userId = session.user.id;
+  if (!userId && session.user.email) {
+    const user = await User.findOne({ email: session.user.email });
+    if (user) userId = user._id;
+  }
+  if (!userId) return [];
+
+  const addresses = await Address.find({ user: userId }).sort({ createdAt: -1 }).lean();
+  return JSON.parse(JSON.stringify(addresses));
+}
+
+export async function saveAddress(formData) {
+  await connectDB();
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) return { error: "Unauthorized" };
+
+  let userId = session.user.id;
+  if (!userId && session.user.email) {
+    const user = await User.findOne({ email: session.user.email });
+    if (user) userId = user._id;
+  }
+
+  try {
+    const addressData = {
+      user: userId,
+      label: formData.get('label') || 'Home',
+      firstName: formData.get('firstName'),
+      lastName: formData.get('lastName'),
+      phone: formData.get('phone'),
+      address: formData.get('address'),
+      city: formData.get('city'),
+      postalCode: formData.get('postalCode'),
+    };
+
+    await Address.create(addressData);
+    revalidatePath('/checkout');
+    return { success: true };
+  } catch (error) {
+    return { error: "Failed to save address" };
   }
 }
