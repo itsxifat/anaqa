@@ -48,9 +48,6 @@ export const authOptions = {
     async session({ session }) {
       await connectDB();
       
-      // DEBUG LOG
-      console.log(`>>> SESSION DEBUG: Fetching user ${session.user.email}`);
-
       const dbUser = await User.findOne({ email: session.user.email })
         .select('name phone image role _id profilePicture');
       
@@ -60,17 +57,13 @@ export const authOptions = {
         session.user.phone = dbUser.phone;
         session.user.role = dbUser.role;
         
-        // DEBUG LOGS
+        // Handle encrypted vs public image
         const hasEncrypted = dbUser.profilePicture && dbUser.profilePicture.iv;
-        console.log(`>>> SESSION DEBUG: Has Public Image? ${!!dbUser.image}`);
-        console.log(`>>> SESSION DEBUG: Has Encrypted Profile? ${!!hasEncrypted}`);
 
         if (hasEncrypted) {
           session.user.image = `/api/user/avatar/${dbUser._id.toString()}?t=${Date.now()}`;
-          console.log(`>>> SESSION DEBUG: Using API URL: ${session.user.image}`);
         } else {
           session.user.image = dbUser.image || null;
-          console.log(`>>> SESSION DEBUG: Using Public/Google URL`);
         }
       }
       return session;

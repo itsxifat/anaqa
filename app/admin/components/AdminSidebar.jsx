@@ -13,21 +13,25 @@ import {
   ChevronRight, 
   Layers, 
   Users, 
-  ShoppingBag // Imported ShoppingBag icon
+  ShoppingBag,
+  Package, // For Orders
+  Ticket   // For Coupons
 } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SidebarContent = ({ activePath, onClickItem }) => {
- const menuItems = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/products', label: 'Products', icon: ShoppingBag }, // Added Products Tab
-  { href: '/admin/carousel', label: 'Carousel Studio', icon: Images },
-  { href: '/admin/categories', label: 'Categories', icon: Layers },
-  { href: '/admin/users', label: 'User Management', icon: Users },
-  { href: '/admin/navbar', label: 'Navigation', icon: Monitor },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
-];
+  const menuItems = [
+    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/orders', label: 'Orders', icon: Package }, // New Route
+    { href: '/admin/products', label: 'Products', icon: ShoppingBag }, 
+    { href: '/admin/categories', label: 'Categories', icon: Layers },
+    { href: '/admin/coupons', label: 'Coupons', icon: Ticket }, // New Route
+    { href: '/admin/carousel', label: 'Carousel Studio', icon: Images },
+    { href: '/admin/users', label: 'User Management', icon: Users },
+    { href: '/admin/navbar', label: 'Navigation', icon: Monitor },
+    { href: '/admin/settings', label: 'Settings', icon: Settings },
+  ];
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] text-white border-r border-white/10">
@@ -45,7 +49,7 @@ const SidebarContent = ({ activePath, onClickItem }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 space-y-1 mt-2">
+      <nav className="flex-1 px-4 space-y-1 mt-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
         {menuItems.map((item) => {
           const Icon = item.icon;
           // Check if path starts with the href (for sub-routes like /admin/products/new)

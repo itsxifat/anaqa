@@ -5,11 +5,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createOrder, saveAddress } from '@/app/actions';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Phone, User, Truck, CreditCard, CheckCircle, Loader2, Plus, Home } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, CreditCard, CheckCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function CheckoutClient({ savedAddresses }) {
-  const { cart, cartTotal, clearCart } = useCart();
+  // 1. GET UPDATED DATA FROM CONTEXT
+  // We rename grandTotal to 'cartSubTotal' to avoid confusion with the final total (which includes shipping)
+  const { cart, cartTotal, grandTotal: cartSubTotal, appliedCoupon, clearCart } = useCart();
+  
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
@@ -25,7 +28,10 @@ export default function CheckoutClient({ savedAddresses }) {
   });
 
   const shippingCost = shippingMethod === 'inside' ? 80 : 150;
-  const grandTotal = cartTotal + shippingCost;
+  
+  // 2. CALCULATE FINAL TOTAL CORRECTLY
+  // Use the discounted subtotal from context + shipping
+  const finalTotal = cartSubTotal + shippingCost;
 
   useEffect(() => {
     if (cart.length === 0) router.push('/cart');
@@ -74,7 +80,9 @@ export default function CheckoutClient({ savedAddresses }) {
         postalCode: finalData.postalCode,
         method: shippingMethod
       },
-      totalAmount: grandTotal,
+      // 3. SEND COUPON CODE TO SERVER
+      couponCode: appliedCoupon?.code || null,
+      totalAmount: finalTotal,
       paymentMethod: 'COD'
     };
 
@@ -108,7 +116,7 @@ export default function CheckoutClient({ savedAddresses }) {
         {/* --- LEFT COLUMN: DETAILS --- */}
         <div className="lg:col-span-7 space-y-8">
           
-          {/* 1. Address Selection */}
+          {/* Address Selection */}
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
              <h2 className="font-bodoni text-xl mb-6 flex items-center gap-2">
                <MapPin size={18} className="text-[#D4AF37]"/> Shipping Details
@@ -174,7 +182,7 @@ export default function CheckoutClient({ savedAddresses }) {
              </AnimatePresence>
           </div>
 
-          {/* 2. Delivery Method */}
+          {/* Delivery Method */}
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
              <h2 className="font-bodoni text-xl mb-6 flex items-center gap-2">
                <Truck size={18} className="text-[#D4AF37]"/> Delivery Method
@@ -218,13 +226,22 @@ export default function CheckoutClient({ savedAddresses }) {
                     <span>Subtotal</span>
                     <span className="font-medium text-black">৳{cartTotal.toLocaleString()}</span>
                  </div>
+                 
+                 {/* 4. SHOW DISCOUNT IF APPLIED */}
+                 {appliedCoupon && (
+                   <div className="flex justify-between text-green-600">
+                      <span>Discount ({appliedCoupon.code})</span>
+                      <span className="font-medium">-৳{appliedCoupon.amount.toLocaleString()}</span>
+                   </div>
+                 )}
+
                  <div className="flex justify-between">
                     <span>Shipping</span>
                     <span className="font-medium text-black">৳{shippingCost.toLocaleString()}</span>
                  </div>
                  <div className="flex justify-between items-center pt-4 mt-2 border-t border-dashed border-gray-200">
                     <span className="font-bodoni text-xl text-black">Total</span>
-                    <span className="font-bodoni text-2xl text-[#D4AF37]">৳{grandTotal.toLocaleString()}</span>
+                    <span className="font-bodoni text-2xl text-[#D4AF37]">৳{finalTotal.toLocaleString()}</span>
                  </div>
               </div>
 
