@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image'; // Import Next.js Image for Crystal Clear quality
+import Image from 'next/image'; 
 import { useRouter } from 'next/navigation';
 import { Star, Minus, Plus, ChevronRight, ShoppingBag, X, Ruler, ZoomIn, Check, RefreshCw } from 'lucide-react';
 import { useCart } from '@/lib/context/CartContext'; 
@@ -18,20 +18,16 @@ const Taka = ({ size = 12, className = "", weight = "normal" }) => (
 // --- COMPONENT: ADVANCED GPU LIGHTBOX ---
 const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  
-  // Transform State: x, y, scale
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isDragging, setIsDragging] = useState(false);
   
-  // Refs for gesture calculation
   const containerRef = useRef(null);
-  const startRef = useRef({ x: 0, y: 0 }); // Drag start position
-  const lastTransformRef = useRef({ x: 0, y: 0, scale: 1 }); // Last committed transform
-  const pinchDistRef = useRef(null); // Distance between two fingers
+  const startRef = useRef({ x: 0, y: 0 });
+  const lastTransformRef = useRef({ x: 0, y: 0, scale: 1 }); 
+  const pinchDistRef = useRef(null); 
 
   useEffect(() => { setCurrentIndex(initialIndex); }, [initialIndex]);
   
-  // Reset zoom when changing images
   useEffect(() => {
     setTransform({ x: 0, y: 0, scale: 1 });
     lastTransformRef.current = { x: 0, y: 0, scale: 1 };
@@ -39,42 +35,30 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
 
   if (!isOpen) return null;
 
-  // --- HELPERS ---
   const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
 
   const updateTransform = (newScale, newX, newY) => {
-    // Limit scale
     const s = clamp(newScale, 1, 5); 
-    
-    // Boundary checks (Keep image within view if zoomed out, allow pan if zoomed in)
-    // Simplified: Just allow free movement when zoomed, center when scale is 1
     let x = newX;
     let y = newY;
-
     if (s === 1) { x = 0; y = 0; }
-
     const newState = { x, y, scale: s };
     setTransform(newState);
     lastTransformRef.current = newState;
   };
 
-  // --- HANDLERS ---
-
-  // 1. Zoom Buttons
   const handleZoomBtn = (delta) => {
     updateTransform(transform.scale + delta, transform.x, transform.y);
   };
 
-  // 2. Double Click / Tap
-  const handleDoubleTap = (e) => {
+  const handleDoubleTap = () => {
     if (transform.scale > 1) {
-      updateTransform(1, 0, 0); // Reset
+      updateTransform(1, 0, 0); 
     } else {
-      updateTransform(2.5, 0, 0); // Zoom in center
+      updateTransform(2.5, 0, 0); 
     }
   };
 
-  // 3. Desktop Wheel Zoom (Ctrl + Scroll)
   const handleWheel = (e) => {
     if (e.ctrlKey) {
       e.preventDefault();
@@ -83,7 +67,6 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
     }
   };
 
-  // 4. Touch/Pointer Events (The Core Logic)
   const handlePointerDown = (e) => {
     e.preventDefault();
     setIsDragging(true);
@@ -102,17 +85,14 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
     setIsDragging(false);
   };
 
-  // 5. Mobile Pinch Logic (Native Touch Events)
   const handleTouchStart = (e) => {
     if (e.touches.length === 2) {
-      // Calculate initial distance
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
       pinchDistRef.current = dist;
     } else if (e.touches.length === 1) {
-       // Single finger drag start
        const touch = e.touches[0];
        startRef.current = { x: touch.clientX - transform.x, y: touch.clientY - transform.y };
        setIsDragging(true);
@@ -120,21 +100,17 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
   };
 
   const handleTouchMove = (e) => {
-    // Pinch Zoom
     if (e.touches.length === 2 && pinchDistRef.current) {
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
       const delta = dist - pinchDistRef.current;
-      // Sensitivity factor
       const speed = 0.005; 
       const newScale = transform.scale + (delta * speed);
-      
       updateTransform(newScale, transform.x, transform.y);
-      pinchDistRef.current = dist; // Update reference for continuous zoom
+      pinchDistRef.current = dist; 
     } 
-    // Pan
     else if (e.touches.length === 1 && transform.scale > 1 && isDragging) {
       const touch = e.touches[0];
       const x = touch.clientX - startRef.current.x;
@@ -150,13 +126,10 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-center items-center backdrop-blur-md animate-fade-in">
-      
-      {/* Controls: Close */}
       <button onClick={onClose} className="absolute top-6 right-6 text-white/70 hover:text-white p-2 z-50">
         <X size={32} />
       </button>
 
-      {/* Controls: Zoom UI */}
       <div className="absolute top-6 left-6 flex gap-2 z-50">
          <button onClick={() => handleZoomBtn(-0.5)} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full backdrop-blur-md transition-colors">
             <Minus size={20}/>
@@ -169,7 +142,6 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
          </button>
       </div>
 
-      {/* Main Viewport */}
       <div 
         ref={containerRef}
         className="relative w-full h-full flex items-center justify-center overflow-hidden touch-none"
@@ -183,12 +155,11 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* GPU Optimized Image Wrapper */}
         <div 
             className="will-change-transform backface-invisible"
             style={{ 
                 transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})`,
-                transition: isDragging ? 'none' : 'transform 0.2s ease-out', // Smooth snap, instant drag
+                transition: isDragging ? 'none' : 'transform 0.2s ease-out', 
                 cursor: transform.scale > 1 ? 'grab' : 'default'
             }}
         >
@@ -197,7 +168,7 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
                     src={images[currentIndex]} 
                     alt="Zoom View" 
                     fill
-                    quality={100} // Cristal Clear
+                    quality={100} 
                     priority
                     sizes="100vw"
                     className="object-contain pointer-events-none select-none"
@@ -206,7 +177,6 @@ const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
         </div>
       </div>
 
-      {/* Thumbnails Footer */}
       <div className="absolute bottom-10 flex gap-4 overflow-x-auto px-4 max-w-full z-50">
         {images.map((img, idx) => (
           <button 
@@ -357,7 +327,8 @@ export default function ProductDetails({ product }) {
       <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-start">
         
         {/* --- LEFT: GALLERY --- */}
-        <div className="lg:col-span-7 flex flex-col-reverse lg:flex-row gap-4 sticky top-24">
+        {/* FIXED: Removed sticky for mobile, added lg:sticky for desktop only */}
+        <div className="lg:col-span-7 flex flex-col-reverse lg:flex-row gap-4 relative lg:sticky lg:top-24">
           
           {/* Thumbnails */}
           {product.images?.length > 1 && (
@@ -380,7 +351,7 @@ export default function ProductDetails({ product }) {
               src={product.images?.[activeImage] || '/placeholder.jpg'} 
               alt={product.name} 
               fill
-              quality={95} // High Quality for Main
+              quality={95} 
               priority
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover transition-transform duration-700 ease-in-out group-hover:scale-105"
