@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; // Import Next.js Image for Crystal Clear quality
 import { useRouter } from 'next/navigation';
-import { Star, Minus, Plus, ChevronRight, ShoppingBag, X, Ruler, ZoomIn, Check, AlertCircle } from 'lucide-react';
+import { Star, Minus, Plus, ChevronRight, ShoppingBag, X, Ruler, ZoomIn, Check, RefreshCw } from 'lucide-react';
 import { useCart } from '@/lib/context/CartContext'; 
 import gsap from 'gsap';
 
@@ -14,61 +15,223 @@ const Taka = ({ size = 12, className = "", weight = "normal" }) => (
   </svg>
 );
 
-// --- COMPONENT: IMAGE LIGHTBOX ---
-const ImageLightbox = ({ isOpen, onClose, images, initialIndex }) => {
+// --- COMPONENT: ADVANCED GPU LIGHTBOX ---
+const AdvancedLightbox = ({ isOpen, onClose, images, initialIndex }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [scale, setScale] = useState(1);
   
+  // Transform State: x, y, scale
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isDragging, setIsDragging] = useState(false);
+  
+  // Refs for gesture calculation
+  const containerRef = useRef(null);
+  const startRef = useRef({ x: 0, y: 0 }); // Drag start position
+  const lastTransformRef = useRef({ x: 0, y: 0, scale: 1 }); // Last committed transform
+  const pinchDistRef = useRef(null); // Distance between two fingers
+
   useEffect(() => { setCurrentIndex(initialIndex); }, [initialIndex]);
+  
+  // Reset zoom when changing images
+  useEffect(() => {
+    setTransform({ x: 0, y: 0, scale: 1 });
+    lastTransformRef.current = { x: 0, y: 0, scale: 1 };
+  }, [currentIndex]);
 
   if (!isOpen) return null;
 
+  // --- HELPERS ---
+  const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+
+  const updateTransform = (newScale, newX, newY) => {
+    // Limit scale
+    const s = clamp(newScale, 1, 5); 
+    
+    // Boundary checks (Keep image within view if zoomed out, allow pan if zoomed in)
+    // Simplified: Just allow free movement when zoomed, center when scale is 1
+    let x = newX;
+    let y = newY;
+
+    if (s === 1) { x = 0; y = 0; }
+
+    const newState = { x, y, scale: s };
+    setTransform(newState);
+    lastTransformRef.current = newState;
+  };
+
+  // --- HANDLERS ---
+
+  // 1. Zoom Buttons
+  const handleZoomBtn = (delta) => {
+    updateTransform(transform.scale + delta, transform.x, transform.y);
+  };
+
+  // 2. Double Click / Tap
+  const handleDoubleTap = (e) => {
+    if (transform.scale > 1) {
+      updateTransform(1, 0, 0); // Reset
+    } else {
+      updateTransform(2.5, 0, 0); // Zoom in center
+    }
+  };
+
+  // 3. Desktop Wheel Zoom (Ctrl + Scroll)
+  const handleWheel = (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.01;
+      updateTransform(transform.scale + delta, transform.x, transform.y);
+    }
+  };
+
+  // 4. Touch/Pointer Events (The Core Logic)
+  const handlePointerDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    startRef.current = { x: e.clientX - transform.x, y: e.clientY - transform.y };
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDragging || transform.scale === 1) return;
+    e.preventDefault();
+    const x = e.clientX - startRef.current.x;
+    const y = e.clientY - startRef.current.y;
+    updateTransform(transform.scale, x, y);
+  };
+
+  const handlePointerUp = () => {
+    setIsDragging(false);
+  };
+
+  // 5. Mobile Pinch Logic (Native Touch Events)
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      // Calculate initial distance
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      pinchDistRef.current = dist;
+    } else if (e.touches.length === 1) {
+       // Single finger drag start
+       const touch = e.touches[0];
+       startRef.current = { x: touch.clientX - transform.x, y: touch.clientY - transform.y };
+       setIsDragging(true);
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    // Pinch Zoom
+    if (e.touches.length === 2 && pinchDistRef.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const delta = dist - pinchDistRef.current;
+      // Sensitivity factor
+      const speed = 0.005; 
+      const newScale = transform.scale + (delta * speed);
+      
+      updateTransform(newScale, transform.x, transform.y);
+      pinchDistRef.current = dist; // Update reference for continuous zoom
+    } 
+    // Pan
+    else if (e.touches.length === 1 && transform.scale > 1 && isDragging) {
+      const touch = e.touches[0];
+      const x = touch.clientX - startRef.current.x;
+      const y = touch.clientY - startRef.current.y;
+      updateTransform(transform.scale, x, y);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    pinchDistRef.current = null;
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-center items-center backdrop-blur-md animate-fade-in">
+      
+      {/* Controls: Close */}
       <button onClick={onClose} className="absolute top-6 right-6 text-white/70 hover:text-white p-2 z-50">
         <X size={32} />
       </button>
-      
-      <div 
-        className="relative w-full h-full flex items-center justify-center overflow-hidden cursor-move"
-        onDoubleClick={() => setScale(scale === 1 ? 2.5 : 1)} 
-      >
-        <img 
-          src={images[currentIndex]} 
-          alt="Zoom View" 
-          className="max-w-[90vw] max-h-[80vh] object-contain transition-transform duration-300 ease-out"
-          style={{ transform: `scale(${scale})` }}
-        />
+
+      {/* Controls: Zoom UI */}
+      <div className="absolute top-6 left-6 flex gap-2 z-50">
+         <button onClick={() => handleZoomBtn(-0.5)} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full backdrop-blur-md transition-colors">
+            <Minus size={20}/>
+         </button>
+         <button onClick={() => handleZoomBtn(0.5)} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full backdrop-blur-md transition-colors">
+            <Plus size={20}/>
+         </button>
+         <button onClick={() => setTransform({x:0,y:0,scale:1})} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full backdrop-blur-md transition-colors ml-2" title="Reset">
+            <RefreshCw size={20}/>
+         </button>
       </div>
 
-      <div className="absolute bottom-10 flex gap-4 overflow-x-auto px-4 max-w-full">
+      {/* Main Viewport */}
+      <div 
+        ref={containerRef}
+        className="relative w-full h-full flex items-center justify-center overflow-hidden touch-none"
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleTap}
+        onMouseDown={handlePointerDown}
+        onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* GPU Optimized Image Wrapper */}
+        <div 
+            className="will-change-transform backface-invisible"
+            style={{ 
+                transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})`,
+                transition: isDragging ? 'none' : 'transform 0.2s ease-out', // Smooth snap, instant drag
+                cursor: transform.scale > 1 ? 'grab' : 'default'
+            }}
+        >
+            <div className="relative w-[90vw] h-[80vh]">
+                <Image 
+                    src={images[currentIndex]} 
+                    alt="Zoom View" 
+                    fill
+                    quality={100} // Cristal Clear
+                    priority
+                    sizes="100vw"
+                    className="object-contain pointer-events-none select-none"
+                />
+            </div>
+        </div>
+      </div>
+
+      {/* Thumbnails Footer */}
+      <div className="absolute bottom-10 flex gap-4 overflow-x-auto px-4 max-w-full z-50">
         {images.map((img, idx) => (
           <button 
             key={idx} 
-            onClick={() => { setCurrentIndex(idx); setScale(1); }}
-            className={`w-16 h-16 border-2 transition-all ${currentIndex === idx ? 'border-[#D4AF37] opacity-100' : 'border-transparent opacity-50'}`}
+            onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
+            className={`relative w-16 h-20 border-2 transition-all shrink-0 ${currentIndex === idx ? 'border-[#D4AF37] opacity-100' : 'border-transparent opacity-50'}`}
           >
-            <img src={img} className="w-full h-full object-cover" />
+            <Image src={img} alt="thumb" fill className="object-cover" sizes="100px"/>
           </button>
         ))}
       </div>
       
-      <div className="absolute top-6 left-6 text-white/50 text-xs font-bold uppercase tracking-widest">
-        Double Click to Zoom • {currentIndex + 1} / {images.length}
+      <div className="absolute bottom-4 text-white/50 text-[10px] font-bold uppercase tracking-widest pointer-events-none">
+        {currentIndex + 1} / {images.length} • Scroll/Pinch to Zoom
       </div>
     </div>
   );
 };
 
-// --- COMPONENT: DYNAMIC SIZE GUIDE TABLE ---
+// --- COMPONENT: SIZE GUIDE TABLE ---
 const SizeGuideModal = ({ isOpen, onClose, sizeGuide }) => {
   if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
       <div className="bg-[#fffdf9] w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl relative rounded-xl flex flex-col" onClick={e => e.stopPropagation()}>
-        
-        {/* Header */}
         <div className="bg-black text-white p-5 flex justify-between items-center sticky top-0 z-10 shrink-0">
           <div>
              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37] block mb-1">Measurement Chart</span>
@@ -76,18 +239,14 @@ const SizeGuideModal = ({ isOpen, onClose, sizeGuide }) => {
           </div>
           <button onClick={onClose} className="hover:text-[#D4AF37] transition-colors"><X size={24}/></button>
         </div>
-
-        {/* Content */}
         <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar">
-          {sizeGuide && sizeGuide.columns && sizeGuide.rows && sizeGuide.rows.length > 0 ? (
+          {sizeGuide && sizeGuide.columns && sizeGuide.rows?.length > 0 ? (
              <div className="overflow-x-auto border border-gray-100 rounded-lg shadow-sm">
                 <table className="w-full text-sm text-left border-collapse">
                    <thead>
                       <tr className="bg-gray-50 border-b border-gray-200">
                          {sizeGuide.columns.map((col, i) => (
-                            <th key={i} className="p-4 font-bold text-black uppercase text-[10px] tracking-widest whitespace-nowrap min-w-[80px]">
-                               {col}
-                            </th>
+                            <th key={i} className="p-4 font-bold text-black uppercase text-[10px] tracking-widest whitespace-nowrap min-w-[80px]">{col}</th>
                          ))}
                       </tr>
                    </thead>
@@ -95,9 +254,7 @@ const SizeGuideModal = ({ isOpen, onClose, sizeGuide }) => {
                       {sizeGuide.rows.map((row, rIdx) => (
                          <tr key={rIdx} className="hover:bg-[#fffdf5] transition-colors">
                             {row.values.map((val, cIdx) => (
-                               <td key={cIdx} className={`p-4 whitespace-nowrap ${cIdx === 0 ? 'font-bold text-black' : 'text-gray-600 font-mono'}`}>
-                                  {val}
-                               </td>
+                               <td key={cIdx} className={`p-4 whitespace-nowrap ${cIdx === 0 ? 'font-bold text-black' : 'text-gray-600 font-mono'}`}>{val}</td>
                             ))}
                          </tr>
                       ))}
@@ -110,12 +267,7 @@ const SizeGuideModal = ({ isOpen, onClose, sizeGuide }) => {
                 <span className="text-xs text-gray-400 uppercase tracking-widest font-bold">No chart data available</span>
              </div>
           )}
-          
-          <div className="mt-6 text-center">
-             <p className="text-[10px] text-gray-400 uppercase tracking-widest">All measurements are in inches unless otherwise noted.</p>
-          </div>
         </div>
-
       </div>
     </div>
   );
@@ -124,11 +276,10 @@ const SizeGuideModal = ({ isOpen, onClose, sizeGuide }) => {
 // --- MAIN COMPONENT ---
 export default function ProductDetails({ product }) {
   const router = useRouter();
-  const { addToCart, cart } = useCart(); // Get cart to check existing quantity
+  const { addToCart, cart } = useCart(); 
   const containerRef = useRef(null);
   
-  // State
-  // 1. Data Parsing (Memoized to prevent recalc on every render)
+  // Data Parsing
   const variants = useMemo(() => 
     product.variants?.length > 0 
       ? product.variants 
@@ -142,24 +293,17 @@ export default function ProductDetails({ product }) {
   const [isLightboxOpen, setLightboxOpen] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
 
-  // 2. Derived State & Validation Logic
+  // Derived Logic
   const currentVariant = variants.find(v => v.size === selectedSize);
   const maxStock = currentVariant ? currentVariant.stock : 0;
   const isOutOfStock = !currentVariant || maxStock <= 0;
-
-  // Check how many are ALREADY in the cart for this specific variant
   const cartItem = cart.find(item => item._id === product._id && item.selectedSize === selectedSize);
   const quantityInCart = cartItem ? cartItem.quantity : 0;
-  
-  // Calculate remaining stock available to add
   const remainingStock = Math.max(0, maxStock - quantityInCart);
 
-  // --- EFFECT: Reset Quantity on Size Change ---
-  useEffect(() => {
-    setQuantity(1); // Reset to 1 whenever size changes to prevent carrying over invalid qty
-  }, [selectedSize]);
+  useEffect(() => { setQuantity(1); }, [selectedSize]);
 
-  // --- ANIMATIONS ---
+  // GSAP Animations
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(".anim-mask", 
@@ -174,15 +318,10 @@ export default function ProductDetails({ product }) {
     return () => ctx.revert();
   }, []);
 
-  // --- ACTIONS ---
   const handleAddToCart = () => {
     if (!selectedSize && variants.length > 0) return alert("Please select a size");
     if (isOutOfStock) return alert("Selected size is out of stock");
-    
-    // STRICT CHECK: Ensure total quantity doesn't exceed stock
-    if (quantity > remainingStock) {
-        return alert(`Sorry, you already have ${quantityInCart} in your cart. Only ${remainingStock} more available.`);
-    }
+    if (quantity > remainingStock) return alert(`Sorry, only ${remainingStock} available.`);
 
     setIsAdding(true);
     addToCart(product, quantity, selectedSize);
@@ -192,21 +331,10 @@ export default function ProductDetails({ product }) {
   const handleBuyNow = () => {
     if (!selectedSize && variants.length > 0) return alert("Please select a size");
     if (isOutOfStock) return alert("Selected size is out of stock");
-    
-    if (quantity > remainingStock) {
-        return alert(`Sorry, only ${remainingStock} available.`);
-    }
+    if (quantity > remainingStock) return alert(`Sorry, only ${remainingStock} available.`);
 
     addToCart(product, quantity, selectedSize);
     router.push('/cart');
-  };
-
-  const incrementQuantity = () => {
-      setQuantity(prev => Math.min(remainingStock, prev + 1));
-  };
-
-  const decrementQuantity = () => {
-      setQuantity(prev => Math.max(1, prev - 1));
   };
 
   if (!product) return null;
@@ -219,7 +347,7 @@ export default function ProductDetails({ product }) {
         <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-gray-400 font-medium">
           <Link href="/" className="hover:text-black transition-colors">Home</Link>
           <ChevronRight size={10} />
-          <Link href="/products" className="hover:text-black transition-colors">Shop</Link>
+          <Link href="/product" className="hover:text-black transition-colors">Shop</Link>
           <ChevronRight size={10} />
           <span className="text-[#D4AF37] border-b border-[#D4AF37] pb-0.5 line-clamp-1">{product.name}</span>
         </div>
@@ -240,33 +368,35 @@ export default function ProductDetails({ product }) {
                   onClick={() => setActiveImage(idx)}
                   className={`relative w-16 h-20 lg:w-20 lg:h-24 shrink-0 border transition-all ${activeImage === idx ? 'border-[#D4AF37] opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`}
                 >
-                  <img src={img} className="w-full h-full object-cover" alt="thumbnail" />
+                  <Image src={img} alt="thumbnail" fill className="object-cover" sizes="100px" />
                 </button>
               ))}
             </div>
           )}
 
-          {/* Main Image */}
-          <div className="flex-1 relative anim-mask bg-gray-100 cursor-zoom-in group" onClick={() => setLightboxOpen(true)}>
-            <img 
+          {/* Main Image (4:5 Ratio & Optimized) */}
+          <div className="flex-1 relative anim-mask bg-gray-100 cursor-zoom-in group w-full aspect-[4/5] overflow-hidden" onClick={() => setLightboxOpen(true)}>
+            <Image 
               src={product.images?.[activeImage] || '/placeholder.jpg'} 
               alt={product.name} 
-              className="w-full h-auto object-cover aspect-[3/4] lg:aspect-auto lg:h-[80vh]"
+              fill
+              quality={95} // High Quality for Main
+              priority
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover transition-transform duration-700 ease-in-out group-hover:scale-105"
             />
             
-            <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
+            <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-10">
               {product.discountPrice && (
                 <span className="bg-black text-white text-[9px] font-bold uppercase tracking-[0.2em] px-3 py-1 shadow-md">Sale</span>
               )}
               {maxStock < 5 && maxStock > 0 && selectedSize && (
-                <span className="bg-red-600 text-white text-[9px] font-bold uppercase tracking-[0.2em] px-3 py-1 shadow-md animate-pulse">
-                  Low Stock
-                </span>
+                <span className="bg-red-600 text-white text-[9px] font-bold uppercase tracking-[0.2em] px-3 py-1 shadow-md animate-pulse">Low Stock</span>
               )}
             </div>
 
-            <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <ZoomIn size={18} />
+            <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 shadow-lg">
+              <ZoomIn size={20} />
             </div>
           </div>
         </div>
@@ -317,8 +447,6 @@ export default function ProductDetails({ product }) {
               <>
                 <div className="flex justify-between items-end mb-4">
                   <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Select Size</span>
-                  
-                  {/* SIZE GUIDE TRIGGER */}
                   {product.sizeGuide && (
                       <button 
                         onClick={() => setShowSizeGuide(true)}
@@ -356,7 +484,7 @@ export default function ProductDetails({ product }) {
                   {selectedSize ? (
                     remainingStock <= 0 ? (
                         quantityInCart > 0 
-                            ? <span className="text-red-500">Max limit reached (You have {quantityInCart} in cart)</span>
+                            ? <span className="text-red-500">Max limit reached</span>
                             : <span className="text-gray-400">Out of Stock</span>
                     ) : (
                         maxStock < 5 ? <span className="text-red-600 animate-pulse">Hurry! Only {remainingStock} Left</span> :
@@ -375,7 +503,7 @@ export default function ProductDetails({ product }) {
             <div className="flex gap-4 h-14">
               <div className="w-32 flex items-center border border-gray-200 bg-white">
                 <button 
-                    onClick={decrementQuantity} 
+                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))} 
                     className="h-full w-10 flex items-center justify-center hover:bg-gray-50"
                     disabled={!selectedSize || remainingStock === 0}
                 >
@@ -383,7 +511,7 @@ export default function ProductDetails({ product }) {
                 </button>
                 <span className="flex-1 text-center font-bold text-sm">{quantity}</span>
                 <button 
-                    onClick={incrementQuantity} 
+                    onClick={() => setQuantity(prev => Math.min(remainingStock, prev + 1))} 
                     className="h-full w-10 flex items-center justify-center hover:bg-gray-50"
                     disabled={!selectedSize || quantity >= remainingStock}
                 >
@@ -416,49 +544,11 @@ export default function ProductDetails({ product }) {
                 {product.description || "Expertly crafted with attention to detail."}
               </p>
           </div>
-
-          {/* Reviews */}
-          <div className="anim-content opacity-0 border-t border-gray-200 pt-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.2em]">Reviews ({product.reviews?.length || 0})</h3>
-              {product.reviews?.length > 0 && (
-                <div className="flex text-[#D4AF37] text-xs">
-                  <Star size={12} fill="currentColor" /> 
-                  <span className="ml-1 text-black font-bold">{(product.reviews.reduce((a,b)=>a+b.rating,0)/product.reviews.length).toFixed(1)}</span>
-                </div>
-              )}
-            </div>
-
-            {product.reviews && product.reviews.length > 0 ? (
-              <div className="space-y-6 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                {product.reviews.map((review, idx) => (
-                  <div key={idx} className="bg-gray-50 p-4 rounded-sm">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold">{review.user}</span>
-                      <div className="flex text-[#D4AF37]">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={10} fill={i < review.rating ? "currentColor" : "none"} className={i >= review.rating ? "text-gray-300" : ""} />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-600 leading-relaxed">{review.comment}</p>
-                    <span className="text-[9px] text-gray-400 mt-2 block">{new Date(review.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-gray-50 border border-dashed border-gray-200">
-                <p className="text-xs text-gray-400 mb-2">No reviews yet.</p>
-                <button className="text-[10px] font-bold uppercase tracking-widest text-black underline">Be the first to write one</button>
-              </div>
-            )}
-          </div>
-
         </div>
       </div>
 
       {/* --- MODALS --- */}
-      <ImageLightbox 
+      <AdvancedLightbox 
         isOpen={isLightboxOpen} 
         onClose={() => setLightboxOpen(false)} 
         images={product.images || []} 
@@ -468,7 +558,6 @@ export default function ProductDetails({ product }) {
       <SizeGuideModal 
         isOpen={showSizeGuide} 
         onClose={() => setShowSizeGuide(false)} 
-        // Pass the FULL sizeGuide object (columns/rows) from database
         sizeGuide={product.sizeGuide} 
       />
 
