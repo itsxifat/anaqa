@@ -20,4 +20,7 @@ const CategorySchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
+CategorySchema.index({ slug: 1 });
+CategorySchema.index({ parent: 1 });
+
 export default mongoose.models.Category || mongoose.model('Category', CategorySchema);

@@ -1,33 +1,50 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import CategorySection from "@/components/CategorySection"; 
-import RecommendedSection from "../components/RecommendedSection"; // <--- THIS IS THE CORRECT IMPORT
+import CategorySection from "@/components/CategorySection";
+import RecommendedSection from "@/components/RecommendedSection";
+import FeaturedSection from "@/components/FeaturedSection";
+import VideoSection from "@/components/VideoSection";
 import connectDB from "@/lib/db";
 import HeroModel from "@/models/Hero";
 import SiteContent from "@/models/SiteContent";
+import FeaturedSectionModel from "@/models/FeaturedSection";
+import VideoSectionModel from "@/models/VideoSection";
+import Footer from "@/components/Footer";
 
 export default async function Home() {
   await connectDB();
-  
-  const siteContent = await SiteContent.findOne({ identifier: 'main_layout' }).lean();
+
+  const [siteContent, slides, featuredRaw, videoRaw] = await Promise.all([
+    SiteContent.findOne({ identifier: 'main_layout' }).lean(),
+    HeroModel.find({}).sort({ createdAt: -1 }).lean(),
+    FeaturedSectionModel.findOne({})
+      .populate('products', 'name slug price discountPrice images category sku')
+      .lean(),
+    VideoSectionModel.findOne({})
+      .populate('products', 'name slug price discountPrice images category sku')
+      .lean(),
+  ]);
+
   const navData = {
     logoImage: "/logo.png",
     logoText: "ANAQA",
-    links: siteContent?.navbarLinks ? JSON.parse(JSON.stringify(siteContent.navbarLinks)) : [] 
+    links: siteContent?.navbarLinks ? JSON.parse(JSON.stringify(siteContent.navbarLinks)) : [],
   };
 
-  const slides = await HeroModel.find({}).sort({ createdAt: -1 }).lean();
   const heroData = slides.map(slide => ({
     id: slide._id.toString(),
     link: slide.link || '/',
     imageDesktop: slide.image || '/placeholder.jpg',
-    imageMobile: slide.mobileImage || null
+    imageMobile: slide.mobileImage || null,
   }));
+
+  const featuredData = featuredRaw ? JSON.parse(JSON.stringify(featuredRaw)) : null;
+  const videoData = videoRaw ? JSON.parse(JSON.stringify(videoRaw)) : null;
 
   return (
     <main className="min-h-screen bg-white">
       <Navbar navData={navData} />
-      
+
       {/* Hero Carousel */}
       {heroData.length > 0 ? (
         <Hero heroData={heroData} />
@@ -40,9 +57,16 @@ export default async function Home() {
       {/* Category Section */}
       <CategorySection />
 
+      {/* Featured Section (image + heading + selected products) */}
+      <FeaturedSection data={featuredData} />
+
       {/* Recommendations */}
       <RecommendedSection />
 
+      {/* Video Section (video + selected products) */}
+      <VideoSection data={videoData} />
+
+      <Footer />
     </main>
   );
 }

@@ -5,8 +5,8 @@ import { ShoppingBag, Menu, Search, User, LogOut, ArrowRight, X, ChevronDown } f
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signOut } from "next-auth/react";
-import { useCart } from '@/lib/context/CartContext'; 
-import { usePathname } from 'next/navigation';
+import { useCart } from '@/lib/context/CartContext';
+import { usePathname, useRouter } from 'next/navigation';
 
 // --- MOBILE MENU DRAWER ---
 const MobileMenu = ({ isOpen, onClose, navData, session }) => {
@@ -111,18 +111,135 @@ const MobileMenu = ({ isOpen, onClose, navData, session }) => {
   );
 };
 
+// --- SEARCH OVERLAY ---
+const SearchOverlay = ({ isOpen, onClose }) => {
+  const router = useRouter();
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setQ('');
+      setResults([]);
+      setTimeout(() => inputRef.current?.focus(), 100);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [isOpen]);
+
+  const handleChange = (val) => {
+    setQ(val);
+    clearTimeout(debounceRef.current);
+    if (!val.trim()) { setResults([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(val)}&limit=6`);
+        const data = await res.json();
+        setResults(data.products || []);
+      } catch { /* silent */ } finally {
+        setLoading(false);
+      }
+    }, 300);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!q.trim()) return;
+    onClose();
+    router.push(`/search?q=${encodeURIComponent(q.trim())}`);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-200 bg-white/95 backdrop-blur-sm flex flex-col"
+    >
+      <div className="border-b border-gray-100 px-6 py-4 flex items-center gap-4">
+        <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-3">
+          <Search size={20} className="text-[#D4AF37] shrink-0" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={q}
+            onChange={e => handleChange(e.target.value)}
+            placeholder="Search for products..."
+            className="flex-1 text-lg md:text-xl font-manrope bg-transparent outline-none text-gray-900 placeholder-gray-300"
+          />
+        </form>
+        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
+          <X size={22} strokeWidth={1.5} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto max-w-2xl w-full mx-auto px-4 py-6">
+        {loading && (
+          <p className="text-xs text-gray-400 text-center uppercase tracking-widest animate-pulse">Searching...</p>
+        )}
+        {!loading && results.length > 0 && (
+          <div className="space-y-3">
+            {results.map(p => (
+              <Link
+                key={p._id}
+                href={`/product/${p.slug}`}
+                onClick={onClose}
+                className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition group"
+              >
+                <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                  {p.images?.[0] && (
+                    <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-manrope text-sm font-semibold text-gray-900 truncate group-hover:text-[#D4AF37] transition-colors">{p.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{p.category?.name}</p>
+                </div>
+                <p className="font-bodoni text-base text-gray-900 shrink-0">৳{p.price}</p>
+              </Link>
+            ))}
+            {q && (
+              <Link
+                href={`/search?q=${encodeURIComponent(q)}`}
+                onClick={onClose}
+                className="flex items-center justify-center gap-2 w-full py-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37] border border-[#D4AF37]/30 rounded-xl hover:bg-[#D4AF37]/5 transition mt-2"
+              >
+                See all results <ArrowRight size={14} />
+              </Link>
+            )}
+          </div>
+        )}
+        {!loading && q && results.length === 0 && (
+          <p className="text-center text-gray-400 text-sm py-8">No products found for &ldquo;{q}&rdquo;</p>
+        )}
+        {!q && (
+          <p className="text-center text-gray-300 text-xs uppercase tracking-widest pt-8">Type to search products</p>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
 // --- MAIN NAVBAR ---
 const Navbar = ({ navData }) => {
-  const pathname = usePathname(); 
+  const pathname = usePathname();
   const { data: session } = useSession();
   const { cartCount } = useCart();
-  
+
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState(null);
-  const [profileOpen, setProfileOpen] = useState(false); 
+  const [profileOpen, setProfileOpen] = useState(false);
   const leaveTimeout = useRef(null);
-  const profileRef = useRef(null); 
+  const profileRef = useRef(null);
   const [mounted, setMounted] = useState(false);
 
   // LOGIC: Check if on Product Page for split-sticky behavior
@@ -185,10 +302,13 @@ const Navbar = ({ navData }) => {
               <button className="lg:hidden p-2 -ml-2 hover:bg-gray-50 rounded-full transition" onClick={() => setMobileMenuOpen(true)}>
                 <Menu size={22} strokeWidth={1.5} />
               </button>
-              <div className="hidden lg:flex items-center gap-2 cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="hidden lg:flex items-center gap-2 cursor-pointer opacity-60 hover:opacity-100 transition-opacity"
+              >
                 <Search size={16} strokeWidth={1.5} />
                 <span className="font-tenor text-[10px] uppercase tracking-[0.2em] pt-0.5">Search</span>
-              </div>
+              </button>
             </div>
 
             {/* Center */}
@@ -304,6 +424,10 @@ const Navbar = ({ navData }) => {
       </motion.nav>
 
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} navData={navData} session={session} />
+
+      <AnimatePresence>
+        {searchOpen && <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />}
+      </AnimatePresence>
     </>
   );
 };

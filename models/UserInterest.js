@@ -6,8 +6,13 @@ const UserInterestSchema = new mongoose.Schema({
   tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }],
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   interactionType: { type: String, enum: ['view', 'cart', 'search'], required: true },
-  score: { type: Number, default: 1 }, // view=1, cart=3, buy=5
-  createdAt: { type: Date, default: Date.now, expires: '30d' } // Auto-delete after 30 days
+  score: { type: Number, default: 1 },
+  createdAt: { type: Date, default: Date.now, expires: '30d' }
 });
+
+UserInterestSchema.index({ user: 1 }, { sparse: true });
+UserInterestSchema.index({ guestId: 1 }, { sparse: true });
+UserInterestSchema.index({ category: 1, score: -1 });
+UserInterestSchema.index({ tags: 1, score: -1 });
 
 export default mongoose.models.UserInterest || mongoose.model('UserInterest', UserInterestSchema);

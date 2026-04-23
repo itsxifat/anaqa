@@ -1,25 +1,44 @@
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingBag, Users } from 'lucide-react';
+import AdminPageWrapper from '../components/AdminPageWrapper';
+import connectDB from '@/lib/db';
+import Order from '@/models/Order';
+import Product from '@/models/Product';
+import User from '@/models/User';
 
-export default function DashboardPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function DashboardPage() {
+  await connectDB();
+
+  const [totalOrders, pendingOrders, totalProducts, totalUsers] = await Promise.all([
+    Order.countDocuments(),
+    Order.countDocuments({ status: 'Pending' }),
+    Product.countDocuments(),
+    User.countDocuments({ role: 'user' }),
+  ]);
+
+  const stats = [
+    { label: 'Total Orders',   value: totalOrders,    icon: Package,        color: 'bg-blue-50 text-blue-600' },
+    { label: 'Pending Orders', value: pendingOrders,  icon: LayoutDashboard,color: 'bg-amber-50 text-amber-600' },
+    { label: 'Products',       value: totalProducts,  icon: ShoppingBag,    color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Customers',      value: totalUsers,     icon: Users,          color: 'bg-violet-50 text-violet-600' },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-classic font-bold text-gray-900">Dashboard</h2>
-        <p className="text-gray-500 mt-1">Welcome back to the admin panel.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Placeholder Stats */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-blue-100 p-4 rounded-xl text-blue-600">
-            <LayoutDashboard size={24} />
+    <AdminPageWrapper title="Dashboard" subtitle="Overview of your store">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {stats.map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className={`${color} p-4 rounded-xl shrink-0`}>
+              <Icon size={22} />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest">{label}</p>
+              <p className="text-3xl font-bodoni font-bold text-gray-900 mt-0.5">{value}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium">System Status</p>
-            <p className="text-2xl font-bold text-gray-900">Active</p>
-          </div>
-        </div>
+        ))}
       </div>
-    </div>
+    </AdminPageWrapper>
   );
 }

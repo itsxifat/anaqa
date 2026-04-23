@@ -100,21 +100,17 @@ export default function CarouselClient({ slides }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-gray-900 font-manrope p-8 pt-24 lg:pt-8">
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-manrope pt-16 lg:pt-0">
       {notification && <Toast notification={notification} onClose={() => setNotification(null)} />}
 
+      {/* Page Header */}
+      <div className="bg-white border-b border-gray-100 px-6 lg:px-10 py-6">
+        <h1 className="font-bodoni text-2xl lg:text-3xl font-bold text-gray-900 tracking-wide">Hero Carousel</h1>
+        <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Manage homepage main visuals</p>
+      </div>
+
+      <div className="px-6 lg:px-10 py-8">
       <div className="max-w-7xl mx-auto">
-        
-        {/* HEADER (Matches Coupon Page) */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 border-b border-gray-200 pb-8">
-          <div>
-            <span className="text-[#D4AF37] font-bold uppercase tracking-[0.3em] text-xs">Visual Merchandising</span>
-            <h1 className="font-bodoni text-4xl md:text-5xl mt-2 text-black">Hero Carousel</h1>
-          </div>
-          <div className="mt-4 md:mt-0 text-right">
-             <p className="text-gray-500 text-sm">Manage homepage main visuals.</p>
-          </div>
-        </div>
 
         {/* CREATE BUTTON / FORM TOGGLE */}
         {!isFormOpen ? (
@@ -256,6 +252,7 @@ export default function CarouselClient({ slides }) {
           )}
         </div>
 
+      </div>
       </div>
     </div>
   );

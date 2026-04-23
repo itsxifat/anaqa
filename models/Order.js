@@ -63,4 +63,12 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Performance indexes
+orderSchema.index({ orderId: 1 });
+orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ 'guestInfo.phone': 1 });
+orderSchema.index({ createdAt: -1 });
+orderSchema.index({ isHighRisk: 1 }, { sparse: true });
+
 export default mongoose.models.Order || mongoose.model("Order", orderSchema);
