@@ -9,7 +9,6 @@ import HeroModel from "@/models/Hero";
 import SiteContent from "@/models/SiteContent";
 import FeaturedSectionModel from "@/models/FeaturedSection";
 import VideoSectionModel from "@/models/VideoSection";
-import Footer from "@/components/Footer";
 
 export default async function Home() {
   await connectDB();
@@ -65,8 +64,6 @@ export default async function Home() {
 
       {/* Video Section (video + selected products) */}
       <VideoSection data={videoData} />
-
-      <Footer />
     </main>
   );
 }

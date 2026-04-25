@@ -2,7 +2,6 @@ import connectDB from '@/lib/db';
 import PageContent from '@/models/PageContent';
 import SiteContent from '@/models/SiteContent';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import StaticPageRenderer from '@/components/StaticPageRenderer';
 
 export async function generateMetadata() {
@@ -39,7 +38,6 @@ export default async function AboutUsPage() {
     <main className="min-h-screen bg-white">
       <Navbar navData={navData} />
       <StaticPageRenderer data={serialized} />
-      <Footer />
     </main>
   );
 }

@@ -143,19 +143,22 @@ export default function AdminProductsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-gray-900 font-manrope p-4 md:p-8 pt-24 lg:pt-8">
-      <div className="max-w-[1400px] mx-auto">
-        
-        {/* --- HEADER --- */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 border-b border-gray-200 pb-8 gap-4">
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-manrope pt-16 lg:pt-0">
+      {/* Page Header */}
+      <div className="bg-white border-b border-gray-100 px-6 lg:px-10 py-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <span className="text-[#D4AF37] font-bold uppercase tracking-[0.3em] text-xs">Inventory</span>
-            <h1 className="font-bodoni text-3xl md:text-5xl mt-2 text-black">Products</h1>
+            <h1 className="font-bodoni text-2xl lg:text-3xl font-bold text-gray-900 tracking-wide">Products</h1>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Manage your product catalogue</p>
           </div>
-          <Link href="/admin/products/new" className="w-full md:w-auto bg-black text-white px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-[#D4AF37] transition-all shadow-lg flex items-center justify-center gap-2">
-            <Plus size={16} /> Create Product
+          <Link href="/admin/products/new" className="inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-[#D4AF37] transition-colors shadow-sm">
+            <Plus size={15} /> Create Product
           </Link>
         </div>
+      </div>
+
+      <div className="px-6 lg:px-10 py-8">
+      <div className="max-w-[1400px] mx-auto">
 
         {/* --- CONTROLS --- */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-8">
@@ -381,13 +384,14 @@ export default function AdminProductsPage() {
         </div>
 
       </div>
+      </div>
 
       {/* --- MODAL --- */}
       {tagModalProduct && (
-         <QuickTagModal 
-            product={tagModalProduct} 
-            availableTags={tags} 
-            onClose={() => setTagModalProduct(null)} 
+         <QuickTagModal
+            product={tagModalProduct}
+            availableTags={tags}
+            onClose={() => setTagModalProduct(null)}
             onUpdate={loadData}
          />
       )}
