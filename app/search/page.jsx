@@ -4,8 +4,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
-import Navbar from '@/components/Navbar';
-import SiteContent from '@/models/SiteContent';
 
 function SearchResults() {
   const searchParams = useSearchParams();
