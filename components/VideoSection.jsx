@@ -1,14 +1,17 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { Play, Pause } from 'lucide-react';
 import ProductCard from './ProductCard';
 
 export default function VideoSection({ data }) {
-  if (!data || !data.isActive || !data.products?.length) return null;
-
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
+
+  const firstRow = useMemo(() => data?.products?.slice(0, 4) ?? [], [data?.products]);
+  const extraRow = useMemo(() => data?.products?.slice(4) ?? [], [data?.products]);
+
+  if (!data || !data.isActive || !data.products?.length) return null;
 
   const toggle = () => {
     if (!videoRef.current) return;
@@ -46,6 +49,7 @@ export default function VideoSection({ data }) {
                 ref={videoRef}
                 src={data.videoUrl}
                 poster={data.videoPoster || undefined}
+                preload="none"
                 loop
                 muted
                 playsInline
@@ -69,16 +73,16 @@ export default function VideoSection({ data }) {
 
           {/* Right: Products */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-8">
-            {data.products.slice(0, 4).map(product => (
+            {firstRow.map(product => (
               <ProductCard key={product._id} product={product} dark />
             ))}
           </div>
         </div>
 
         {/* Extra products row */}
-        {data.products.length > 4 && (
+        {extraRow.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10 mt-12">
-            {data.products.slice(4).map(product => (
+            {extraRow.map(product => (
               <ProductCard key={product._id} product={product} dark />
             ))}
           </div>

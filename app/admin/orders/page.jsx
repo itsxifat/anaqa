@@ -213,10 +213,9 @@ export default function AdminOrdersPage() {
   };
 
   const handleStatusChange = async (id, status, reason = null) => {
+    // Optimistic update — no refetch needed
     setOrders(prev => prev.map(o => o._id === id ? { ...o, status } : o));
     await updateOrderStatus(id, status, reason);
-    const data = await getAdminOrders();
-    setOrders(data);
   };
 
   const filteredOrders = useMemo(() => {

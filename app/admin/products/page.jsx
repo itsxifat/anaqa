@@ -7,7 +7,7 @@ import {
   ChevronDown, Calendar, AlertCircle, Layers
 } from 'lucide-react';
 import { getAdminProducts, deleteProduct, getCategories, getTags, updateProductTags } from '@/app/actions';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- HELPER: FLATTEN CATEGORIES ---
@@ -82,10 +82,14 @@ export default function AdminProductsPage() {
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
   const [filterTag, setFilterTag] = useState('');
-  const [filterStock, setFilterStock] = useState('all'); // all, in, out
+  const [filterStock, setFilterStock] = useState('all');
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [debouncedPrice, setDebouncedPrice] = useState({ min: '', max: '' });
+  const searchDebounce = useRef(null);
+  const priceDebounce = useRef(null);
   
   // Modal State
   const [tagModalProduct, setTagModalProduct] = useState(null);
@@ -106,14 +110,14 @@ export default function AdminProductsPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  // --- FILTER LOGIC ---
+  // --- FILTER LOGIC (uses debounced values so typing doesn't block the UI) ---
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      // 1. Search (Name, SKU, Barcode)
-      const q = search.toLowerCase();
-      const matchesSearch = !q || 
-          p.name.toLowerCase().includes(q) || 
-          (p.sku && p.sku.toLowerCase().includes(q)) || 
+      // 1. Search (Name, SKU, Barcode) — debounced
+      const q = debouncedSearch.toLowerCase();
+      const matchesSearch = !q ||
+          p.name.toLowerCase().includes(q) ||
+          (p.sku && p.sku.toLowerCase().includes(q)) ||
           (p.barcode && p.barcode.toLowerCase().includes(q));
 
       // 2. Category
@@ -127,13 +131,13 @@ export default function AdminProductsPage() {
       if (filterStock === 'in') matchesStock = p.stock > 0;
       if (filterStock === 'out') matchesStock = p.stock === 0;
 
-      // 5. Price
-      const matchesMinPrice = !priceRange.min || p.price >= Number(priceRange.min);
-      const matchesMaxPrice = !priceRange.max || p.price <= Number(priceRange.max);
+      // 5. Price — debounced
+      const matchesMinPrice = !debouncedPrice.min || p.price >= Number(debouncedPrice.min);
+      const matchesMaxPrice = !debouncedPrice.max || p.price <= Number(debouncedPrice.max);
 
       return matchesSearch && matchesCat && matchesTag && matchesStock && matchesMinPrice && matchesMaxPrice;
     });
-  }, [products, search, filterCat, filterTag, filterStock, priceRange]);
+  }, [products, debouncedSearch, filterCat, filterTag, filterStock, debouncedPrice]);
 
   const handleDelete = async (id) => {
     if (confirm('Permanently delete this product?')) {
@@ -168,7 +172,11 @@ export default function AdminProductsPage() {
                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                  <input 
                    value={search}
-                   onChange={(e) => setSearch(e.target.value)}
+                   onChange={(e) => {
+                     setSearch(e.target.value);
+                     clearTimeout(searchDebounce.current);
+                     searchDebounce.current = setTimeout(() => setDebouncedSearch(e.target.value), 250);
+                   }}
                    placeholder="Search by Name, SKU, Barcode..." 
                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-transparent focus:bg-white focus:border-black rounded-xl text-sm outline-none transition-all"
                  />
@@ -226,9 +234,19 @@ export default function AdminProductsPage() {
                       <div className="space-y-2 col-span-1 md:col-span-2">
                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Price Range</label>
                          <div className="flex gap-2">
-                            <input type="number" placeholder="Min" value={priceRange.min} onChange={(e) => setPriceRange({...priceRange, min:e.target.value})} className="w-full p-2.5 bg-gray-50 rounded-lg text-sm outline-none border focus:border-black"/>
+                            <input type="number" placeholder="Min" value={priceRange.min} onChange={(e) => {
+                              const v = { ...priceRange, min: e.target.value };
+                              setPriceRange(v);
+                              clearTimeout(priceDebounce.current);
+                              priceDebounce.current = setTimeout(() => setDebouncedPrice(v), 400);
+                            }} className="w-full p-2.5 bg-gray-50 rounded-lg text-sm outline-none border focus:border-black"/>
                             <span className="text-gray-400 flex items-center">-</span>
-                            <input type="number" placeholder="Max" value={priceRange.max} onChange={(e) => setPriceRange({...priceRange, max:e.target.value})} className="w-full p-2.5 bg-gray-50 rounded-lg text-sm outline-none border focus:border-black"/>
+                            <input type="number" placeholder="Max" value={priceRange.max} onChange={(e) => {
+                              const v = { ...priceRange, max: e.target.value };
+                              setPriceRange(v);
+                              clearTimeout(priceDebounce.current);
+                              priceDebounce.current = setTimeout(() => setDebouncedPrice(v), 400);
+                            }} className="w-full p-2.5 bg-gray-50 rounded-lg text-sm outline-none border focus:border-black"/>
                          </div>
                       </div>
 

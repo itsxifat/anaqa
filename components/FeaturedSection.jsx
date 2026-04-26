@@ -8,12 +8,12 @@ export default function FeaturedSection({ data }) {
     <section className="py-20 md:py-32 bg-[#F9F7F4] font-manrope border-t border-gray-100">
       <div className="max-w-[1600px] mx-auto px-4 md:px-8">
 
-        {/* Two-column layout: image left, text + products right */}
+        {/* Two-column layout: image left, text right */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-16">
 
           {/* Left: Image */}
           {data.image && (
-            <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-xl">
+            <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden shadow-xl">
               <Image
                 src={data.image}
                 alt={data.heading || 'Featured Collection'}
@@ -37,7 +37,7 @@ export default function FeaturedSection({ data }) {
                 {data.subheading}
               </p>
             )}
-            <div className="w-12 h-[2px] bg-[#D4AF37] mt-6" />
+            <div className="w-12 h-0.5 bg-[#D4AF37] mt-6" />
           </div>
         </div>
 

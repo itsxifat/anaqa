@@ -353,9 +353,16 @@ export async function getUserOrders() {
   return serialize(orders);
 }
 
-export async function getAdminOrders() {
+export async function getAdminOrders({ limit = 200, skip = 0, status = '' } = {}) {
   await connectDB();
-  const orders = await Order.find().sort({ createdAt: -1 }).populate('user', 'name email').lean();
+  const filter = status && status !== 'All' ? { status } : {};
+  const orders = await Order.find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .select('-__v')
+    .populate('user', 'name email')
+    .lean();
   return serialize(orders);
 }
 

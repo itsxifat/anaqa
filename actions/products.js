@@ -180,8 +180,28 @@ export async function getProductHierarchy() {
 
 export async function getAdminProducts() {
   await connectDB();
-  const productsRaw = await Product.find().sort({ createdAt: -1 }).populate('category', 'name').populate('tags', 'name color').lean();
+  const productsRaw = await Product.find()
+    .sort({ createdAt: -1 })
+    .populate('category', 'name')
+    .populate('tags', 'name color')
+    .lean();
   return JSON.parse(JSON.stringify(productsRaw));
+}
+
+// Lightweight product list for admin pickers (Featured/Video section selectors).
+// Returns only the fields the UI needs — orders of magnitude faster than getAdminProducts.
+export async function getProductsForPicker(search = '', limit = 60) {
+  await connectDB();
+  const filter = search.trim()
+    ? { name: { $regex: search.trim(), $options: 'i' } }
+    : {};
+  const products = await Product.find(filter)
+    .select('name slug price discountPrice images category')
+    .populate('category', 'name')
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+  return JSON.parse(JSON.stringify(products));
 }
 
 export async function updateProductTags(productId, tags) {
@@ -372,13 +392,19 @@ export async function getProductBySlug(slug) {
 
 export async function getAllProducts() {
   await connectDB();
-  let productsRaw = await Product.find().sort({ createdAt: -1 })
+  const now = new Date();
+
+  // Bulk-reset all expired offers in a single write instead of N individual updates
+  await Product.updateMany(
+    { saleEndDate: { $lt: now }, discountPrice: { $exists: true } },
+    { $unset: { discountPrice: '', saleStartDate: '', saleEndDate: '' } }
+  );
+
+  const productsRaw = await Product.find()
+    .sort({ createdAt: -1 })
     .populate('category', 'name slug')
     .populate('tags', 'name')
     .lean();
-  
-  // Check Offers in Bulk
-  productsRaw = await Promise.all(productsRaw.map(checkAndResetOffer));
 
   return JSON.parse(JSON.stringify(productsRaw));
 }
