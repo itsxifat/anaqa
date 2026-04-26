@@ -1,24 +1,29 @@
+import { notFound } from 'next/navigation';
 import connectDB from '@/lib/db';
 import PageContent from '@/models/PageContent';
 import SiteContent from '@/models/SiteContent';
 import Navbar from '@/components/Navbar';
 import StaticPageRenderer from '@/components/StaticPageRenderer';
 
-export async function generateMetadata() {
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
   await connectDB();
-  const data = await PageContent.findOne({ slug: 'about' }).lean();
+  const data = await PageContent.findOne({ slug, isPublished: true }).lean();
   return {
-    title: data?.title || 'About Us',
-    description: data?.heroSubheading || '',
+    title: data?.title || slug,
+    description: data?.description || data?.heroSubheading || '',
   };
 }
 
-export default async function AboutUsPage() {
+export default async function PublicPage({ params }) {
+  const { slug } = await params;
   await connectDB();
   const [siteContent, data] = await Promise.all([
     SiteContent.findOne({ identifier: 'main_layout' }).lean(),
-    PageContent.findOne({ slug: 'about' }).lean(),
+    PageContent.findOne({ slug, isPublished: true }).lean(),
   ]);
+
+  if (!data) notFound();
 
   const navData = {
     logoImage: '/logo.png',
@@ -26,18 +31,10 @@ export default async function AboutUsPage() {
     links: siteContent?.navbarLinks ? JSON.parse(JSON.stringify(siteContent.navbarLinks)) : [],
   };
 
-  const serialized = data ? JSON.parse(JSON.stringify(data)) : {
-    title: 'About Us',
-    heroHeading: 'Who We Are',
-    heroSubheading: 'Crafting luxury experiences for the modern soul.',
-    sections: [],
-    teamMembers: [],
-  };
-
   return (
     <main className="min-h-screen bg-white">
       <Navbar navData={navData} />
-      <StaticPageRenderer data={serialized} />
+      <StaticPageRenderer data={JSON.parse(JSON.stringify(data))} />
     </main>
   );
 }

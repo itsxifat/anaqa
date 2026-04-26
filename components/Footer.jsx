@@ -191,7 +191,7 @@ const FooterColumn = ({ title, links }) => (
 );
 
 // --- 7. MAIN COMPONENT ---
-export default function Footer() {
+export default function Footer({ footerPages = [] }) {
   const currentYear = new Date().getFullYear();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -260,11 +260,15 @@ export default function Footer() {
     }
   };
 
-  const columns = {
-    brand: [{ label: 'About', href: '/about' }, { label: 'Locations', href: '/location' }],
-    support: [{ label: 'Support', href: '/support' }, { label: 'FAQs', href: '/faq' }],
-    legal: [{ label: 'Privacy', href: '/policies/privacy' }, { label: 'Returns', href: '/policies/return' }]
-  };
+  const columnGroups = useMemo(() => {
+    const groups = {};
+    for (const page of footerPages) {
+      const group = page.footerGroup || 'Legal';
+      if (!groups[group]) groups[group] = [];
+      groups[group].push({ label: page.title, href: `/pages/${page.slug}` });
+    }
+    return groups;
+  }, [footerPages]);
 
   return (
     <footer className="bg-[#050505] text-white pt-24 pb-0 font-manrope relative overflow-hidden border-t border-white/5">
@@ -314,9 +318,9 @@ export default function Footer() {
                <SocialButton icon={Linkedin} href="#" />
              </div>
           </div>
-          <div className="lg:col-span-2 lg:col-start-7"><FooterColumn title="The House" links={columns.brand} /></div>
-          <div className="lg:col-span-2"><FooterColumn title="Assistance" links={columns.support} /></div>
-          <div className="lg:col-span-2"><FooterColumn title="Legal" links={columns.legal} /></div>
+          {Object.entries(columnGroups).map(([group, links]) => (
+            <div key={group} className="lg:col-span-2"><FooterColumn title={group} links={links} /></div>
+          ))}
         </div>
 
         {/* --- BOTTOM BAR --- */}

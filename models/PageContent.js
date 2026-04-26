@@ -1,32 +1,30 @@
 import mongoose from 'mongoose';
 
-// Generic rich-content model powering About Us, Terms, and Privacy Policy
 const PageContentSchema = new mongoose.Schema({
-  // Slug identifies which page: 'about', 'terms', 'privacy'
   slug: { type: String, required: true, unique: true },
   title: { type: String, required: true },
-  // Hero / banner section
+  description: { type: String, default: '' },
   heroImage: { type: String, default: '' },
   heroHeading: { type: String, default: '' },
   heroSubheading: { type: String, default: '' },
-  // Main body — stored as an array of {heading, body} blocks so the admin
-  // can add/reorder sections without a full CMS
   sections: [{
     heading: { type: String, default: '' },
-    body: { type: String, default: '' },   // supports HTML from a simple textarea
+    body: { type: String, default: '' },
     order: { type: Number, default: 0 },
   }],
-  // About-Us-specific extras
   teamMembers: [{
     name: String,
     role: String,
     image: String,
     bio: String,
   }],
-  updatedAt: { type: Date, default: Date.now },
+  showInFooter: { type: Boolean, default: true },
+  footerGroup: { type: String, default: 'Legal' },
+  isPublished: { type: Boolean, default: true },
 }, { timestamps: true });
 
 PageContentSchema.index({ slug: 1 });
+PageContentSchema.index({ showInFooter: 1, isPublished: 1 });
 
 export default mongoose.models.PageContent ||
   mongoose.model('PageContent', PageContentSchema);

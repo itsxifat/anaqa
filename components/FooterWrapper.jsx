@@ -3,18 +3,9 @@
 import { usePathname } from 'next/navigation';
 import Footer from './Footer';
 
-export default function FooterWrapper() {
+export default function FooterWrapper({ footerPages = [] }) {
   const pathname = usePathname();
-
-  // List of paths where the footer should be HIDDEN
   const hiddenPaths = ['/admin', '/login', '/signup', '/verify'];
-
-  // Check if current path starts with any of the hidden paths
-  const isHidden = hiddenPaths.some((path) => pathname?.startsWith(path));
-
-  if (isHidden) {
-    return null;
-  }
-
-  return <Footer />;
+  if (hiddenPaths.some(p => pathname?.startsWith(p))) return null;
+  return <Footer footerPages={footerPages} />;
 }

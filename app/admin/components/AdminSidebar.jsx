@@ -19,7 +19,6 @@ import {
   Star,
   Video,
   FileText,
-  Shield,
   Info,
   ChevronDown,
 } from 'lucide-react';
@@ -56,9 +55,8 @@ const NAV_GROUPS = [
   {
     label: 'Pages',
     items: [
-      { href: '/admin/pages/about',   label: 'About Us',          icon: Info },
-      { href: '/admin/pages/terms',   label: 'Terms & Conditions',icon: FileText },
-      { href: '/admin/pages/privacy', label: 'Privacy Policy',    icon: Shield },
+      { href: '/admin/pages',     label: 'All Pages',  icon: FileText },
+      { href: '/admin/pages/new', label: 'New Page',   icon: Info },
     ],
   },
   {

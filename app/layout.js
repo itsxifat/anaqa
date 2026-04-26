@@ -3,33 +3,28 @@ import Navbar from '@/components/Navbar';
 import { CartProvider } from '@/lib/context/CartContext';
 import SessionProvider from '@/components/SessionProvider';
 import FooterWrapper from '@/components/FooterWrapper';
-import { Toaster } from 'react-hot-toast'; // ✅ Import the Toaster
+import { Toaster } from 'react-hot-toast';
+import { getFooterPages } from '@/actions/pages';
 
 export const metadata = {
   title: 'ANAQA',
   description: 'Premium Fashion Store',
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const footerPages = await getFooterPages();
+
   return (
     <html lang="en">
       <body className="antialiased">
         <SessionProvider>
           <CartProvider>
-            
-            {/* ✅ The Toaster component must be here. 
-                It is invisible until a toast is triggered.
-            */}
             <Toaster position="top-right" reverseOrder={false} />
-
             <Navbar />
-            
             <main>
               {children}
             </main>
-
-            <FooterWrapper />
-            
+            <FooterWrapper footerPages={footerPages} />
           </CartProvider>
         </SessionProvider>
       </body>
