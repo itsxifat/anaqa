@@ -185,8 +185,8 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 w-full bg-[#050505]/90 backdrop-blur-md z-40 px-6 py-4 flex items-center justify-between border-b border-white/10">
+      {/* Mobile top bar — solid bg, no backdrop-blur (expensive on scroll) */}
+      <div className="lg:hidden fixed top-0 left-0 w-full bg-[#050505] z-40 px-6 py-4 flex items-center justify-between border-b border-white/10">
         <span className="font-bodoni text-xl font-bold text-white tracking-widest">ANAQA</span>
         <button onClick={() => setIsOpen(true)} className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
           <Menu size={24} />

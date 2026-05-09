@@ -46,9 +46,11 @@ export default async function AdminLayout({ children }) {
 
   // 5. Render Dashboard
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
-      <main className="flex-1 lg:ml-[280px]">
+      {/* main is the sole scroll container — keeps the fixed sidebar composited separately
+          so the browser can GPU-accelerate scroll without repainting the sidebar */}
+      <main className="flex-1 lg:ml-[280px] h-screen overflow-y-auto">
         {children}
       </main>
     </div>
