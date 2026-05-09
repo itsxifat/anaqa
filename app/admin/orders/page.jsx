@@ -168,10 +168,12 @@ export default function AdminOrdersPage() {
   const [cancelOrderId, setCancelOrderId] = useState(null);
   const [fraudCheckCustomer, setFraudCheckCustomer] = useState(null);
 
-  useEffect(() => { loadOrders(); }, []);
+  // Reload whenever the status filter changes — server handles the filter
+  useEffect(() => { loadOrders(statusFilter); }, [statusFilter]);
 
-  const loadOrders = async () => {
-    const data = await getAdminOrders();
+  const loadOrders = async (status = statusFilter) => {
+    setLoading(true);
+    const data = await getAdminOrders({ status: status === 'All' ? '' : status });
     setOrders(data);
     setLoading(false);
   };
@@ -183,7 +185,7 @@ export default function AdminOrdersPage() {
           const res = await sendToSteadfast(id);
           if(res.success) {
               toast.success(`Sent to Courier! Tracking: ${res.tracking_code}`);
-              loadOrders();
+              loadOrders(statusFilter);
           } else {
               toast.error(res.error || "Failed to send");
           }
@@ -202,7 +204,7 @@ export default function AdminOrdersPage() {
           const res = await bulkShipToSteadfast();
           if(res.success) {
               toast.success(`Success! Shipped ${res.count || 'multiple'} orders.`);
-              loadOrders();
+              loadOrders(statusFilter);
           } else {
               toast.error(res.error || "Bulk ship failed");
           }
@@ -218,15 +220,16 @@ export default function AdminOrdersPage() {
     await updateOrderStatus(id, status, reason);
   };
 
+  // Status is already filtered server-side; only search runs client-side
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      if (statusFilter !== 'All' && order.status !== statusFilter) return false;
-      const searchLower = searchTerm.toLowerCase();
-      return order.orderId?.toLowerCase().includes(searchLower) || 
-             (order.guestInfo?.firstName + ' ' + order.guestInfo?.lastName).toLowerCase().includes(searchLower) ||
-             order.guestInfo?.phone?.includes(searchLower);
-    });
-  }, [orders, searchTerm, statusFilter]);
+    if (!searchTerm.trim()) return orders;
+    const q = searchTerm.toLowerCase();
+    return orders.filter(order =>
+      order.orderId?.toLowerCase().includes(q) ||
+      (order.guestInfo?.firstName + ' ' + order.guestInfo?.lastName).toLowerCase().includes(q) ||
+      order.guestInfo?.phone?.includes(q)
+    );
+  }, [orders, searchTerm]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -239,11 +242,6 @@ export default function AdminOrdersPage() {
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#faf9f6] p-8 flex items-center justify-center">
-      <div className="animate-spin w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full"></div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-[#faf9f6] font-manrope">
@@ -306,7 +304,19 @@ export default function AdminOrdersPage() {
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {filteredOrders.length === 0 ? (
+                {loading ? (
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse border-b border-gray-50">
+                      <td className="p-5"><div className="h-4 w-4 bg-gray-100 rounded"/></td>
+                      <td className="p-5"><div className="h-4 w-28 bg-gray-100 rounded"/></td>
+                      <td className="p-5"><div className="h-4 w-20 bg-gray-100 rounded"/></td>
+                      <td className="p-5"><div className="h-4 w-32 bg-gray-100 rounded"/></td>
+                      <td className="p-5"><div className="h-6 w-20 bg-gray-100 rounded"/></td>
+                      <td className="p-5"><div className="h-4 w-16 bg-gray-100 rounded"/></td>
+                      <td className="p-5"><div className="h-8 w-24 bg-gray-100 rounded ml-auto"/></td>
+                    </tr>
+                  ))
+                ) : filteredOrders.length === 0 ? (
                    <tr><td colSpan="7" className="p-10 text-center text-gray-400">No orders found.</td></tr>
                 ) : filteredOrders.map(order => (
                   <React.Fragment key={order._id}>

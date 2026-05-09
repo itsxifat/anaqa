@@ -178,14 +178,35 @@ export async function getProductHierarchy() {
   return JSON.parse(JSON.stringify(hierarchy));
 }
 
-export async function getAdminProducts() {
+export async function getAdminProducts({ search = '', category = '', tag = '', stock = 'all', limit = 50, skip = 0 } = {}) {
   await connectDB();
-  const productsRaw = await Product.find()
-    .sort({ createdAt: -1 })
-    .populate('category', 'name')
-    .populate('tags', 'name color')
-    .lean();
-  return JSON.parse(JSON.stringify(productsRaw));
+
+  const filter = {};
+  if (search.trim()) {
+    filter.$or = [
+      { name: { $regex: search.trim(), $options: 'i' } },
+      { sku: { $regex: search.trim(), $options: 'i' } },
+      { barcode: { $regex: search.trim(), $options: 'i' } },
+    ];
+  }
+  if (category) filter.category = category;
+  if (tag) filter.tags = tag;
+  if (stock === 'in') filter.stock = { $gt: 0 };
+  if (stock === 'out') filter.stock = 0;
+
+  const [productsRaw, total] = await Promise.all([
+    Product.find(filter)
+      .select('name sku barcode price discountPrice stock images category tags variants createdAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('category', 'name')
+      .populate('tags', 'name color')
+      .lean(),
+    Product.countDocuments(filter),
+  ]);
+
+  return { products: JSON.parse(JSON.stringify(productsRaw)), total };
 }
 
 // Lightweight product list for admin pickers (Featured/Video section selectors).

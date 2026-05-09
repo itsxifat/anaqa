@@ -131,11 +131,9 @@ function computeRuleDiscount(rule, verifiedItems, cartTotal, totalQty) {
 }
 
 export async function calculateCart(cartItems, manualCode = null) {
-  console.log("--- DEBUG START: calculateCart ---");
-  
   await connectDB();
   const response = { cartTotal: 0, discountTotal: 0, grandTotal: 0, appliedCoupon: null, error: null };
-  
+
   if (!cartItems || cartItems.length === 0) return response;
 
   const productIds = cartItems.map(i => i._id || i.product);
@@ -143,72 +141,46 @@ export async function calculateCart(cartItems, manualCode = null) {
   const dbProducts = serialize(dbProductsRaw);
   const now = new Date();
 
-  console.log(`Checking ${dbProducts.length} products from DB...`);
-
   const verifiedItems = [];
-  
+
   for (const clientItem of cartItems) {
       const dbProd = dbProducts.find(p => p._id.toString() === (clientItem._id || clientItem.product).toString());
-      
+
       if (dbProd) {
-          // --- DEBUGGING PRICES ---
           const basePrice = Number(dbProd.price);
           const discPrice = Number(dbProd.discountPrice);
           let effectivePrice = basePrice;
-          
-          console.log(`Product: ${dbProd.name}`);
-          console.log(` > Base Price (DB): ${basePrice}`);
-          console.log(` > Discount Price (DB): ${discPrice}`);
 
-          // --- STRICT DISCOUNT LOGIC ---
           if (!isNaN(discPrice) && discPrice > 0 && discPrice < basePrice) {
              const start = dbProd.saleStartDate ? new Date(dbProd.saleStartDate) : null;
              const end = dbProd.saleEndDate ? new Date(dbProd.saleEndDate) : null;
-             
-             // Timezone safe check: If date is missing, treat as active
              const isStarted = !start || now >= start;
              const isNotEnded = !end || now <= end;
-             
-             console.log(` > Sale Active? ${isStarted && isNotEnded} (Start: ${start}, End: ${end}, Now: ${now})`);
-
-             if (isStarted && isNotEnded) {
-                 effectivePrice = discPrice;
-                 console.log(` >>> APPLYING DISCOUNT: New Price is ${effectivePrice}`);
-             } else {
-                 console.log(` >>> DISCOUNT IGNORED: Date range invalid.`);
-             }
-          } else {
-             console.log(` >>> NO VALID DISCOUNT DETECTED.`);
+             if (isStarted && isNotEnded) effectivePrice = discPrice;
           }
 
-          // --- SIZE LOGIC ---
-          let finalSize = clientItem.size || clientItem.selectedSize; 
+          let finalSize = clientItem.size || clientItem.selectedSize;
           if (!finalSize && dbProd.variants && dbProd.variants.length === 1) {
               finalSize = dbProd.variants[0].size;
-              console.log(` > Auto-Assigned Size: ${finalSize}`);
           } else if (!finalSize) {
-              finalSize = "STD"; 
-              console.log(` > Defaulted Size to STD`);
+              finalSize = "STD";
           }
 
           verifiedItems.push({
               ...dbProd,
-              _id: dbProd._id, 
-              price: effectivePrice, // ✅ THIS MUST BE THE DISCOUNTED PRICE
-              basePrice: basePrice, 
-              quantity: clientItem.quantity, 
-              selectedSize: finalSize, 
+              _id: dbProd._id,
+              price: effectivePrice,
+              basePrice: basePrice,
+              quantity: clientItem.quantity,
+              selectedSize: finalSize,
               sku: dbProd.sku,
-              barcode: dbProd.barcode 
+              barcode: dbProd.barcode
           });
       }
   }
 
-  // Calculate Totals
   response.cartTotal = verifiedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalQty = verifiedItems.reduce((acc, item) => acc + item.quantity, 0);
-
-  console.log(`Total Cart Value (Calculated): ${response.cartTotal}`);
 
   // Coupons
   const autoRules = await Coupon.find({ isAutomatic: true, isActive: true });
@@ -250,30 +222,31 @@ export async function calculateCart(cartItems, manualCode = null) {
 
   if (response.discountTotal > response.cartTotal) response.discountTotal = response.cartTotal;
   response.grandTotal = response.cartTotal - response.discountTotal;
-  
   response.verifiedItems = verifiedItems;
-  console.log("--- DEBUG END ---");
   return response;
 }
 
 // --- ORDER CREATION ---
 export async function createOrder(orderData) {
-  console.log("--- CREATE ORDER STARTED ---");
   await connectDB();
   const session = await getServerSession(authOptions);
-  
+
   let userId = session?.user?.id;
   if (!userId && session?.user?.email) {
     const user = await User.findOne({ email: session.user.email });
     if (user) userId = user._id;
   }
-  
+
   // 1. Recalculate
   const calcResult = await calculateCart(orderData.items, orderData.couponCode);
-  
-  // 2. Stock Check
+
+  // 2. Stock Check — batch fetch products instead of one query per item
+  const stockIds = calcResult.verifiedItems.map(i => i._id);
+  const stockProducts = await Product.find({ _id: { $in: stockIds } }).lean();
+  const stockMap = Object.fromEntries(stockProducts.map(p => [p._id.toString(), p]));
+
   for (const item of calcResult.verifiedItems) {
-      const product = await Product.findById(item._id);
+      const product = stockMap[item._id.toString()];
       if (!product) return { error: `Product not found: ${item.name}` };
 
       if (item.selectedSize && item.selectedSize !== "STD" && item.selectedSize !== "Standard") {
@@ -287,55 +260,50 @@ export async function createOrder(orderData) {
 
   // 3. Create Order
   const count = await Order.countDocuments();
-  
-  // LOG THE ITEMS BEING SAVED TO DB TO VERIFY PRICE
-  console.log("Items to Save:", calcResult.verifiedItems.map(i => ({ name: i.name, price: i.price, size: i.selectedSize })));
 
   const newOrder = new Order({
     ...orderData,
-    user: userId, 
+    user: userId,
     orderId: `#ANQ-${1000 + count + 1}`,
     status: 'Pending',
-    subTotal: calcResult.cartTotal, 
+    subTotal: calcResult.cartTotal,
     discountAmount: calcResult.discountTotal || 0,
     couponCode: calcResult.appliedCoupon?.code || null,
     totalAmount: calcResult.grandTotal + (orderData.shippingAddress.method === 'outside' ? 150 : 80),
     items: calcResult.verifiedItems.map(vi => ({
         product: vi._id,
         name: vi.name,
-        price: vi.price, // ✅ VERIFY THIS IS DISCOUNTED IN CONSOLE
+        price: vi.price,
         basePrice: vi.basePrice,
         quantity: vi.quantity,
-        size: vi.selectedSize, 
+        size: vi.selectedSize,
         image: vi.images?.[0] || vi.image,
-        sku: vi.sku,         
-        barcode: vi.barcode 
+        sku: vi.sku,
+        barcode: vi.barcode
     }))
   });
 
   await newOrder.save();
 
-  // 4. Inventory
-  for (const item of calcResult.verifiedItems) {
+  // 4. Inventory — run updates in parallel
+  await Promise.all(calcResult.verifiedItems.map(item => {
     if (item.selectedSize && item.selectedSize !== "STD" && item.selectedSize !== "Standard") {
-        await Product.updateOne(
-            { _id: item._id, "variants.size": item.selectedSize },
-            { $inc: { "variants.$.stock": -item.quantity, stock: -item.quantity } }
-        );
-    } else {
-        await Product.findByIdAndUpdate(item._id, { $inc: { stock: -item.quantity } });
+      return Product.updateOne(
+        { _id: item._id, "variants.size": item.selectedSize },
+        { $inc: { "variants.$.stock": -item.quantity, stock: -item.quantity } }
+      );
     }
-  }
+    return Product.findByIdAndUpdate(item._id, { $inc: { stock: -item.quantity } });
+  }));
 
   if (calcResult.appliedCoupon) {
-      await Coupon.findOneAndUpdate(
-          { code: calcResult.appliedCoupon.code }, 
-          { $inc: { usedCount: 1 }, $push: { usedBy: { user: userId, usedAt: new Date() } } }
-      );
+    await Coupon.findOneAndUpdate(
+      { code: calcResult.appliedCoupon.code },
+      { $inc: { usedCount: 1 }, $push: { usedBy: { user: userId, usedAt: new Date() } } }
+    );
   }
 
   revalidatePath('/admin/orders');
-  console.log("--- ORDER CREATED SUCCESSFULLY ---");
   return { success: true, orderId: newOrder.orderId };
 }
 
@@ -353,7 +321,7 @@ export async function getUserOrders() {
   return serialize(orders);
 }
 
-export async function getAdminOrders({ limit = 200, skip = 0, status = '' } = {}) {
+export async function getAdminOrders({ limit = 50, skip = 0, status = '' } = {}) {
   await connectDB();
   const filter = status && status !== 'All' ? { status } : {};
   const orders = await Order.find(filter)
