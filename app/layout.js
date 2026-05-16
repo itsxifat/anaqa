@@ -1,5 +1,4 @@
 import './globals.css';
-import Navbar from '@/components/Navbar';
 import { CartProvider } from '@/lib/context/CartContext';
 import SessionProvider from '@/components/SessionProvider';
 import FooterWrapper from '@/components/FooterWrapper';
@@ -20,10 +19,9 @@ export default async function RootLayout({ children }) {
         <SessionProvider>
           <CartProvider>
             <Toaster position="top-right" reverseOrder={false} />
-            <Navbar />
-            <main>
-              {children}
-            </main>
+            {/* Each page renders its own <Navbar navData={...}> — no shared Navbar here
+                so there is exactly ONE scroll listener per page, not two. */}
+            {children}
             <FooterWrapper footerPages={footerPages} />
           </CartProvider>
         </SessionProvider>

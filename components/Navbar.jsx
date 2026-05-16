@@ -24,7 +24,7 @@ const MobileMenu = ({ isOpen, onClose, navData, session }) => {
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[150] lg:hidden"
+            className="fixed inset-0 bg-black/60 z-[150] lg:hidden"
           />
           <motion.div 
             initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
@@ -161,7 +161,7 @@ const SearchOverlay = ({ isOpen, onClose }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-200 bg-white/95 backdrop-blur-sm flex flex-col"
+      className="fixed inset-0 z-200 bg-white flex flex-col"
     >
       <div className="border-b border-gray-100 px-6 py-4 flex items-center gap-4">
         <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-3">
@@ -248,10 +248,13 @@ const Navbar = ({ navData }) => {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    // Don't attach when navData is absent — Navbar isn't rendering so no listener needed
+    if (!navData) return;
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll);
+    // passive: true lets the browser scroll without waiting for JS, eliminating frame delay
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [navData]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -294,7 +297,7 @@ const Navbar = ({ navData }) => {
           
           {/* TOP ROW: Sticky ONLY on Product Page */}
           <div className={`flex justify-between items-center h-16 relative z-[101] transition-all duration-300 ${
-             isProductPage ? 'sticky top-0 bg-white/95 backdrop-blur-sm' : ''
+             isProductPage ? 'sticky top-0 bg-white' : ''
           }`}>
             
             {/* Left */}
