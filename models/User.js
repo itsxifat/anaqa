@@ -26,7 +26,6 @@ const UserSchema = new mongoose.Schema({
   resetPasswordExpires: { type: Date },
 }, { timestamps: true });
 
-UserSchema.index({ email: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ isBanned: 1 }, { sparse: true });
 

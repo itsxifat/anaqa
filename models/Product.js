@@ -42,7 +42,6 @@ const ProductSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Performance indexes
-ProductSchema.index({ slug: 1 });
 ProductSchema.index({ category: 1, createdAt: -1 });
 ProductSchema.index({ tags: 1 });
 ProductSchema.index({ price: 1 });
