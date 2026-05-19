@@ -11,7 +11,6 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { 
   ShoppingBag, Eye, Heart, Filter, ChevronDown, 
   LayoutGrid, List, ArrowRight, X, Check, SlidersHorizontal, 
@@ -438,7 +437,7 @@ const ProductCardRenderer = ({ product, viewMode }) => {
     return (
       <div className="group flex flex-col md:flex-row gap-8 items-center border-b border-gray-100 py-10">
         <Link href={`/product/${product.slug}`} className="block w-full md:w-64 aspect-[3/4] bg-gray-100 relative overflow-hidden shrink-0">
-          <Image src={product.images?.[0] || '/placeholder.jpg'} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
+          <img src={product.images?.[0] || '/placeholder.jpg'} alt={product.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
         </Link>
         <div className="flex-1 text-center md:text-left w-full">
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 mb-3">{label}</p>
