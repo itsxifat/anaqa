@@ -166,7 +166,7 @@ export default function AdminSizeManager() {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-6 md:p-12 font-manrope text-[#1a1a1a]">
+    <div className="min-h-screen bg-[#faf9f6] p-4 md:p-12 pt-20 lg:pt-4 font-manrope text-[#1a1a1a]">
       <div className="max-w-7xl mx-auto">
         
         {/* HEADER */}

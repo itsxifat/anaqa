@@ -11,11 +11,11 @@ export default async function AdminCouponsPage() {
   const categories = await getTopCategories(); 
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-gray-900 font-manrope p-8 pt-24 lg:pt-8">
+    <div className="min-h-screen bg-[#faf9f6] text-gray-900 font-manrope p-4 md:p-8 pt-20 lg:pt-8">
       <div className="max-w-7xl mx-auto">
-        
+
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 border-b border-gray-200 pb-8">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-12 border-b border-gray-200 pb-6 md:pb-8">
           <div>
             <span className="text-[#D4AF37] font-bold uppercase tracking-[0.3em] text-xs">Promotion Engine</span>
             <h1 className="font-bodoni text-4xl md:text-5xl mt-2 text-black">Active Coupons</h1>

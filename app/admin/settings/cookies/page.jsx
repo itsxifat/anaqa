@@ -45,13 +45,20 @@ export default function AccountSettingsPage() {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto font-manrope">
-      <div className="flex justify-between items-center mb-8">
-         <h1 className="font-bodoni text-3xl font-bold">Steadfast Accounts</h1>
-         <button onClick={handleRefreshAll} disabled={loading} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-[#D4AF37] transition-colors disabled:opacity-50">
+    <div className="min-h-screen bg-gray-50 font-manrope pt-16 lg:pt-0">
+      {/* Page Header */}
+      <div className="bg-white border-b border-gray-100 px-4 md:px-10 py-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="font-bodoni text-2xl md:text-3xl font-bold text-gray-900 tracking-wide">Steadfast Accounts</h1>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Manage courier API credentials</p>
+          </div>
+          <button onClick={handleRefreshAll} disabled={loading} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-[#D4AF37] transition-colors disabled:opacity-50">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh All Sessions
-         </button>
+          </button>
+        </div>
       </div>
+      <div className="px-4 md:px-10 py-8 max-w-5xl">
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
          
@@ -115,6 +122,7 @@ export default function AccountSettingsPage() {
          </div>
 
       </div>
+    </div>
     </div>
   );
 }

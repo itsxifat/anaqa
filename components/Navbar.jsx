@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ShoppingBag, Menu, Search, User, LogOut, ArrowRight, X, ChevronDown } from 'lucide-react';
+import { ShoppingBag, Menu, Search, User, LogOut, ArrowRight, X, ChevronDown, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signOut } from "next-auth/react";
@@ -94,6 +94,11 @@ const MobileMenu = ({ isOpen, onClose, navData, session }) => {
                       <p className="text-[10px] text-gray-500 truncate">{session.user.email}</p>
                     </div>
                   </div>
+                  {session.user?.role === 'admin' && (
+                    <Link href="/admin" onClick={onClose} className="flex items-center justify-center gap-2 bg-black text-[#D4AF37] border border-black py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#D4AF37] hover:text-white hover:border-[#D4AF37] transition-all">
+                      <LayoutDashboard size={14} /> Admin Panel
+                    </Link>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <Link href="/account" onClick={onClose} className="flex items-center justify-center gap-2 bg-white border border-gray-200 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-600 hover:text-[#D4AF37] hover:border-[#D4AF37] transition-all"><User size={14} /> Account</Link>
                     <Link href="/orders" onClick={onClose} className="flex items-center justify-center gap-2 bg-white border border-gray-200 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-600 hover:text-[#D4AF37] hover:border-[#D4AF37] transition-all"><ShoppingBag size={14} /> Orders</Link>
@@ -357,6 +362,9 @@ const Navbar = ({ navData }) => {
                         <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1 truncate">{session.user?.email}</p>
                       </div>
                       <div className="p-2 space-y-1">
+                        {session.user?.role === 'admin' && (
+                          <Link href="/admin" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-lg transition-colors"><LayoutDashboard size={14} strokeWidth={1.5} /> Admin Panel</Link>
+                        )}
                         <Link href="/account" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-xs font-semibold uppercase tracking-widest text-gray-600 hover:bg-gray-50 hover:text-[#D4AF37] rounded-lg transition-colors"><User size={14} strokeWidth={1.5} /> My Account</Link>
                         <Link href="/orders" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-xs font-semibold uppercase tracking-widest text-gray-600 hover:bg-gray-50 hover:text-[#D4AF37] rounded-lg transition-colors"><ShoppingBag size={14} strokeWidth={1.5} /> My Orders</Link>
                         <div className="h-px bg-gray-100 my-1 mx-2"></div>
