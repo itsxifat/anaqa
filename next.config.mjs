@@ -5,8 +5,20 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // User-uploaded files: 1-day cache, must revalidate so deleted files
-        // stop appearing in browsers within 24h (not 1 year)
+        // HTML pages: browser must always ask the server for fresh data.
+        // Excludes Next.js static chunks (/_next/static/) which are content-hashed
+        // and safe to cache forever, and uploaded images.
+        source: '/((?!_next/static|_next/image|uploads|favicon\\.ico).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Uploaded images: 1-day cache. Browser revalidates after 24h so
+        // deleted images stop showing quickly without hammering the server.
         source: '/uploads/:path*',
         headers: [
           {
