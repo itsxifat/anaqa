@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:media": "node scripts/migrate-media.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.1",

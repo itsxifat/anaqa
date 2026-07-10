@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import SmartImage from './SmartImage';
 
 // --- INITIALIZATION ---
 if (typeof window !== 'undefined') {
@@ -163,31 +164,45 @@ export default function ProductListing({ initialProducts }) {
     return () => clearTimeout(timer);
   }, []);
 
+  // Filter drawer slide — its own effect so opening the filter never re-triggers
+  // the product reveal below.
   useEffect(() => {
-    if (loading) return;
-    ScrollTrigger.refresh();
-    
-    // Animate Filter Panel Opening
-    if (isFilterOpen && filterPanelRef.current) {
+    if (loading || !filterPanelRef.current) return;
+    if (isFilterOpen) {
       gsap.to(filterPanelRef.current, { x: '0%', y: '0%', duration: 0.5, ease: 'power3.out' });
-    } else if (filterPanelRef.current) {
-      // Responsive Exit Animation
+    } else {
       const isMobile = window.innerWidth < 768;
-      gsap.to(filterPanelRef.current, { 
-        x: isMobile ? '0%' : '100%', 
-        y: isMobile ? '100%' : '0%', 
-        duration: 0.4, 
-        ease: 'power3.in' 
+      gsap.to(filterPanelRef.current, {
+        x: isMobile ? '0%' : '100%',
+        y: isMobile ? '100%' : '0%',
+        duration: 0.4,
+        ease: 'power3.in',
       });
     }
+  }, [isFilterOpen, loading]);
 
-    if (processedData.length > 0) {
-      gsap.fromTo(".product-item", 
-        { y: 40, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6, stagger: 0.05, ease: "power2.out", overwrite: 'auto' }
-      );
-    }
-  }, [processedData, loading, viewMode, isFilterOpen]);
+  // Product reveal. Scoped to the container, with a *capped* total stagger
+  // (`amount`) so cards far down the grid don't sit at opacity:0 for seconds
+  // (which read as blank/white while scrolling). clearProps guarantees no card
+  // is ever left stuck invisible.
+  useEffect(() => {
+    if (loading || !containerRef.current) return;
+    const items = containerRef.current.querySelectorAll('.product-item');
+    if (!items.length) return;
+    gsap.fromTo(
+      items,
+      { y: 30, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.5,
+        ease: 'power2.out',
+        stagger: { amount: 0.4 },
+        overwrite: 'auto',
+        clearProps: 'opacity,transform',
+      }
+    );
+  }, [processedData, loading, viewMode]);
 
   const toggleFilter = (type, value) => {
     setActiveFilters(prev => {
@@ -437,7 +452,7 @@ const ProductCardRenderer = ({ product, viewMode }) => {
     return (
       <div className="group flex flex-col md:flex-row gap-8 items-center border-b border-gray-100 py-10">
         <Link href={`/product/${product.slug}`} className="block w-full md:w-64 aspect-[3/4] bg-gray-100 relative overflow-hidden shrink-0">
-          <img src={product.images?.[0] || '/placeholder.jpg'} alt={product.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          <SmartImage src={product.images?.[0] || '/placeholder.jpg'} alt={product.name} sizes="(max-width: 768px) 100vw, 256px" className="object-cover transition-transform duration-700 group-hover:scale-105" />
         </Link>
         <div className="flex-1 text-center md:text-left w-full">
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 mb-3">{label}</p>
@@ -455,9 +470,9 @@ const ProductCardRenderer = ({ product, viewMode }) => {
     <div className="group relative flex flex-col">
       <Link href={`/product/${product.slug}`} className="block">
         <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#f9f9f9] mb-4 md:mb-6">
-          <img src={product.images?.[0] || '/placeholder.jpg'} alt={product.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:scale-105" />
+          <SmartImage src={product.images?.[0] || '/placeholder.jpg'} alt={product.name} sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover transition-transform duration-[1.5s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:scale-105" />
           {product.images?.[1] && (
-            <img src={product.images[1]} alt={product.name} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 opacity-0 group-hover:opacity-100 z-10" />
+            <SmartImage src={product.images[1]} alt={product.name} sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover transition-opacity duration-500 opacity-0 group-hover:opacity-100 z-10" />
           )}
           <div className="absolute top-2 left-2 md:top-3 md:left-3 z-20 flex flex-col gap-2 items-start">
             {discountPercent > 0 && <span className="bg-white text-black text-[8px] md:text-[9px] font-bold uppercase tracking-widest px-2 py-1 shadow-sm">-{discountPercent}%</span>}

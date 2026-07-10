@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
+import SmartImage from './SmartImage';
 
 export default function ProductGallery({ images }) {
   const [currentImage, setCurrentImage] = useState(0);
@@ -32,7 +33,7 @@ export default function ProductGallery({ images }) {
                 : 'border-transparent opacity-60 hover:opacity-100'
             }`}
           >
-            <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
+            <SmartImage src={img} alt="Thumbnail" sizes="96px" className="object-cover" />
           </button>
         ))}
       </div>
@@ -45,10 +46,12 @@ export default function ProductGallery({ images }) {
         onMouseMove={handleMouseMove}
       >
         {/* Normal Image */}
-        <img 
-          src={images[currentImage]} 
-          alt="Product Main" 
-          className="w-full h-full object-cover transition-opacity duration-300"
+        <SmartImage
+          src={images[currentImage]}
+          alt="Product Main"
+          priority
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          className="object-cover transition-opacity duration-300"
         />
 
         {/* Zoom Lens Overlay (High-Res Effect) */}

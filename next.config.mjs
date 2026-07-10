@@ -38,6 +38,13 @@ const nextConfig = {
   },
 
   images: {
+    // Serve modern formats — far smaller than the original JPEG/PNG.
+    formats: ['image/avif', 'image/webp'],
+    // Each CDN asset has a unique (UUID) URL, so an optimized variant never goes
+    // stale. Cache it for a year: the browser/optimizer stop re-fetching &
+    // re-optimizing the same image on every scroll-back (the "white then loads
+    // with a delay" symptom).
+    minimumCacheTTL: 31536000,
     remotePatterns: [
       {
         protocol: 'https',

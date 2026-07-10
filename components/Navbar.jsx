@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signOut } from "next-auth/react";
 import { useCart } from '@/lib/context/CartContext';
 import { usePathname, useRouter } from 'next/navigation';
+import SmartImage from './SmartImage';
 
 // --- MOBILE MENU DRAWER ---
 const MobileMenu = ({ isOpen, onClose, navData, session }) => {
@@ -198,9 +199,9 @@ const SearchOverlay = ({ isOpen, onClose }) => {
                 onClick={onClose}
                 className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition group"
               >
-                <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                <div className="relative w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                   {p.images?.[0] && (
-                    <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                    <SmartImage src={p.images[0]} alt={p.name} sizes="56px" className="object-cover" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">

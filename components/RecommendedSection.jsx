@@ -41,38 +41,49 @@ export default function RecommendedSection() {
     fetchInfo();
   }, []);
 
-  // 2. GPU-Accelerated Mobile Auto-Scroll
+  // 2. GPU-Accelerated Mobile Auto-Scroll — only runs while on screen & tab
+  // visible, so it stops burning frames (and battery) when scrolled past.
   useEffect(() => {
     const track = trackRef.current;
     if (!track || window.innerWidth >= 1024 || loading || products.length === 0) return;
 
     let frameId;
     let pos = 0;
-    const speed = 0.5; // Adjust speed here
+    let running = false;
+    const speed = 0.5;
 
-    const animate = () => {
+    const step = () => {
       pos += speed;
-      
-      // Calculate single set width (half the total track because we duplicated items)
-      // We assume the track contains [...products, ...products]
-      const singleSetWidth = track.scrollWidth / 2;
-
-      // Reset smoothly without user noticing
-      if (pos >= singleSetWidth) {
-         pos = 0;
-      }
-
-      // KEY FIX: translate3d forces GPU acceleration
+      const singleSetWidth = track.scrollWidth / 2; // track = [...products, ...products]
+      if (pos >= singleSetWidth) pos = 0;
       track.style.transform = `translate3d(-${pos}px, 0, 0)`;
-      
-      frameId = requestAnimationFrame(animate);
+      frameId = requestAnimationFrame(step);
     };
 
-    // Start animation
-    frameId = requestAnimationFrame(animate);
+    const start = () => {
+      if (running || document.hidden) return;
+      running = true;
+      frameId = requestAnimationFrame(step);
+    };
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(frameId);
+    };
+
+    // Pause the loop whenever the carousel isn't visible.
+    const io = new IntersectionObserver(
+      ([entry]) => (entry.isIntersecting ? start() : stop()),
+      { threshold: 0 }
+    );
+    io.observe(track);
+
+    const onVisibility = () => (document.hidden ? stop() : start());
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
-      cancelAnimationFrame(frameId);
+      stop();
+      io.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [products, loading]);
 

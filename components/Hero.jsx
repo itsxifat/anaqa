@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowLeft } from "lucide-react"; 
+import { ArrowRight, ArrowLeft } from "lucide-react";
 import Link from 'next/link';
+import SmartImage from './SmartImage';
 
 // ==========================================
 // CONFIGURATION
@@ -145,17 +146,21 @@ const Hero = ({ heroData }) => {
         >
            {/* Image Render - NO FILTERS, NO OVERLAYS */}
            <div className="relative w-full h-full">
-              <img 
-                src={slide.imageDesktop || slide.image || '/placeholder.jpg'} 
-                alt="Hero" 
-                className={`w-full h-full object-cover ${slide.imageMobile || slide.mobileImage ? 'hidden md:block' : 'block'}`}
+              <SmartImage
+                src={slide.imageDesktop || slide.image || '/placeholder.jpg'}
+                alt="Hero"
+                priority
+                sizes="100vw"
+                className={`object-cover ${slide.imageMobile || slide.mobileImage ? 'hidden md:block' : 'block'}`}
               />
-              
+
               {(slide.imageMobile || slide.mobileImage) && (
-                <img 
-                  src={slide.imageMobile || slide.mobileImage} 
-                  alt="Hero Mobile" 
-                  className="w-full h-full object-cover md:hidden" 
+                <SmartImage
+                  src={slide.imageMobile || slide.mobileImage}
+                  alt="Hero Mobile"
+                  priority
+                  sizes="100vw"
+                  className="object-cover md:hidden"
                 />
               )}
            </div>
